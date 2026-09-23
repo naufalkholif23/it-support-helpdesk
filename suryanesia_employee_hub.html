@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suryanesia Employee Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        surya: {
+                            green: '#00783d',
+                            yellow: '#fad96c',
+                            orange: '#fdc26e',
+                            lightgreen: '#def7e4',
+                            lightyellow: '#fef7e2',
+                            lightblue: '#caecff',
+                            dark: '#1a1a1a',
+                            gray: '#f5f7fa'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Accordion Styles */
+        .accordion-content {
+            transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out, padding 0.3s ease-in-out;
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            padding-top: 0;
+            padding-bottom: 0;
+        }
+        .accordion-content.expanded {
+            max-height: 1000px; /* Arbitrary large number */
+            opacity: 1;
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+        .accordion-icon {
+            transition: transform 0.3s ease-in-out;
+        }
+        .accordion-icon.rotated {
+            transform: rotate(180deg);
+        }
+
+        /* Toast Animation */
+        @keyframes slideUp {
+            from { transform: translate(-50%, 100%); opacity: 0; }
+            to { transform: translate(-50%, 0); opacity: 1; }
+        }
+        @keyframes slideDown {
+            from { transform: translate(-50%, 0); opacity: 1; }
+            to { transform: translate(-50%, 100%); opacity: 0; }
+        }
+        .toast-enter { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .toast-exit { animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        
+        /* Card Hover Effects */
+        .hover-card {
+            transition: all 0.3s ease;
+        }
+        .hover-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            border-color: #00783d;
+        }
+        
+        /* Gradation Background based on guideline */
+        .bg-surya-gradient {
+            background: linear-gradient(135deg, #fad96c 0%, #fdc26e 100%);
+        }
+    </style>
+</head>
+<body class="text-gray-800 h-screen flex overflow-hidden selection:bg-surya-green selection:text-white">
+
+    <!-- Sidebar Navigation -->
+    <aside class="w-72 bg-white border-r border-gray-200 flex flex-col hidden md:flex h-full z-20 shrink-0">
+        <div class="p-6 flex items-center justify-start border-b border-gray-100 h-20">
+            <!-- Using the provided logo -->
+            <img src="Untitled design (2).jpg" alt="Suryanesia Logo" class="h-10 object-contain">
+        </div>
+        
+        <div class="px-4 py-6 overflow-y-auto flex-1">
+            <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-4 px-3" id="txt-main-menu">Main Menu</p>
+            <nav class="space-y-1.5" id="sidebar-nav">
+                <button onclick="navigate('home')" id="nav-home" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
+                    <i class="fas fa-home w-5 text-center text-lg"></i><span id="txt-nav-home">Home</span>
+                </button>
+                <button onclick="navigate('request')" id="nav-request" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
+                    <i class="fas fa-concierge-bell w-5 text-center text-lg"></i><span id="txt-nav-request">Request Center</span>
+                </button>
+                <button onclick="navigate('sop')" id="nav-sop" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
+                    <i class="fas fa-book w-5 text-center text-lg"></i><span id="txt-nav-sop">SOP & Guidelines</span>
+                </button>
+                <button onclick="navigate('policies')" id="nav-policies" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
+                    <i class="fas fa-gavel w-5 text-center text-lg"></i><span id="txt-nav-policies">Policies</span>
+                </button>
+                <button onclick="navigate('corner')" id="nav-corner" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
+                    <i class="fas fa-user-circle w-5 text-center text-lg"></i><span id="txt-nav-corner">Employee Corner</span>
+                </button>
+                <button onclick="navigate('links')" id="nav-links" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
+                    <i class="fas fa-link w-5 text-center text-lg"></i><span id="txt-nav-links">Quick Links</span>
+                </button>
+            </nav>
+        </div>
+
+        <!-- User Profile Section -->
+        <div class="mt-auto p-4 border-t border-gray-100 bg-gray-50/50">
+            <div class="flex items-center space-x-3 p-2 rounded-xl hover:bg-gray-100 cursor-pointer transition-colors">
+                <div class="w-10 h-10 rounded-full bg-surya-green flex items-center justify-center text-white font-bold text-sm shadow-sm">
+                    EP
+                </div>
+                <div>
+                    <p class="text-sm font-bold text-gray-900 leading-tight" id="txt-profile-title">Employee Profile</p>
+                    <p class="text-xs text-gray-500" id="txt-profile-sub">View Settings</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-full overflow-hidden bg-surya-gray relative">
+        <!-- Top Header -->
+        <header class="bg-white border-b border-gray-200/60 z-10 px-4 md:px-8 h-20 flex items-center justify-between sticky top-0 shrink-0 shadow-sm backdrop-blur-md bg-white/90">
+            <!-- Mobile Menu Toggle -->
+            <div class="flex items-center space-x-4 md:hidden">
+                <button class="text-gray-600 hover:text-surya-green"><i class="fas fa-bars text-xl"></i></button>
+                <img src="Untitled design (2).jpg" alt="Suryanesia Logo" class="h-8 object-contain">
+            </div>
+            
+            <!-- Global Search -->
+            <div class="flex-1 max-w-2xl mx-auto md:mx-0 hidden sm:block">
+                <div class="relative group">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <i class="fas fa-search text-gray-400 group-focus-within:text-surya-green transition-colors"></i>
+                    </div>
+                    <input type="text" id="search-input" class="block w-full pl-11 pr-12 py-2.5 border border-gray-200 rounded-xl leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-surya-lightgreen focus:border-surya-green focus:bg-white text-sm transition-all shadow-sm" placeholder="Search SOPs, policies, forms...">
+                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none hidden md:flex">
+                        <span class="text-gray-400 text-xs font-semibold border border-gray-200 rounded-md px-1.5 py-0.5 bg-white">⌘K</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Actions -->
+            <div class="flex items-center space-x-4 ml-auto sm:ml-4">
+                <!-- Language Toggle -->
+                <div class="flex items-center bg-gray-100 rounded-full p-1 border border-gray-200">
+                    <button id="btn-lang-id" class="px-3 py-1 rounded-full text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors" onclick="setLanguage('id')">ID</button>
+                    <button id="btn-lang-en" class="px-3 py-1 rounded-full text-xs font-bold bg-white text-surya-green shadow-sm transition-colors" onclick="setLanguage('en')">EN</button>
+                </div>
+
+                <button class="text-gray-500 hover:text-surya-green transition-colors relative p-2 bg-gray-50 rounded-full" onclick="showToast(currentLang === 'id' ? 'Tidak ada pengumuman baru' : 'No new announcements')">
+                    <i class="far fa-bell text-lg"></i>
+                    <span class="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Dynamic Content Area -->
+        <div class="flex-1 overflow-y-auto relative" id="content-area">
+            <!-- Views injected here via JS -->
+        </div>
+    </main>
+
+    <!-- Global Toast Container -->
+    <div id="toast-container" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center pointer-events-none gap-2"></div>
+
+    <script>
+        let currentLang = 'en';
+        let currentViewId = 'home';
+
+        // Static UI Translations
+        const uiTranslations = {
+            en: {
+                mainMenu: "Main Menu",
+                navHome: "Home",
+                navRequest: "Request Center",
+                navSOP: "SOP & Guidelines",
+                navPolicies: "Policies",
+                navCorner: "Employee Corner",
+                navLinks: "Quick Links",
+                profileTitle: "Employee Profile",
+                profileSub: "View Settings",
+                searchPlaceholder: "Search SOPs, policies, forms..."
+            },
+            id: {
+                mainMenu: "Menu Utama",
+                navHome: "Beranda",
+                navRequest: "Pusat Bantuan",
+                navSOP: "SOP & Panduan",
+                navPolicies: "Kebijakan",
+                navCorner: "Pojok Karyawan",
+                navLinks: "Tautan Cepat",
+                profileTitle: "Profil Karyawan",
+                profileSub: "Lihat Pengaturan",
+                searchPlaceholder: "Cari SOP, kebijakan, formulir..."
+            }
+        };
+
+        const views = {
+            en: {
+                home: `
+                    <div class="fade-in max-w-6xl mx-auto p-4 md:p-8 pb-12">
+                        <!-- Welcome Hero -->
+                        <div class="mb-8 bg-surya-green rounded-3xl p-8 md:p-10 text-white shadow-lg relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
+                            <div class="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+                            <div class="absolute bottom-0 left-0 w-40 h-40 bg-surya-yellow opacity-10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/4"></div>
+                            
+                            <div class="z-10 w-full md:w-2/3">
+                                <span class="inline-block py-1 px-3 rounded-full bg-white/20 text-white text-xs font-bold tracking-wider mb-4 border border-white/30 backdrop-blur-sm">SURYANESIA EMPLOYEE HUB</span>
+                                <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight mb-3">Everything you need,<br>in one place.</h1>
+                                <p class="text-surya-lightgreen text-lg max-w-xl opacity-90">A single portal to access SOPs, company policies, employee information, and request forms.</p>
+                            </div>
+                            <div class="z-10 shrink-0 hidden md:block">
+                                 <div class="w-32 h-32 bg-white rounded-full flex items-center justify-center p-4 shadow-xl">
+                                    <img src="Untitled design (2).jpg" alt="Logo" class="w-full h-full object-contain" onerror="this.src='https://placehold.co/200x200/fff/00783d?text=Logo'">
+                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Company Update Banner -->
+                        <div onclick="showToast('Opening Townhall Announcement')" class="mb-10 bg-surya-lightyellow border border-surya-yellow/50 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 cursor-pointer hover:shadow-md transition-all group">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-12 h-12 bg-surya-yellow text-surya-green rounded-xl flex items-center justify-center text-xl shrink-0 shadow-sm"><i class="fas fa-bullhorn"></i></div>
+                                <div>
+                                    <h3 class="text-base font-bold text-gray-900 group-hover:text-surya-green transition-colors">📢 COMPANY UPDATE: Q3 Townhall Meeting</h3>
+                                    <p class="text-gray-600 text-sm mt-0.5">Friday, August 25, 2026. Mandatory attendance for all employees. Check the full agenda.</p>
+                                </div>
+                            </div>
+                            <span class="text-surya-green font-bold text-sm bg-white px-4 py-2 rounded-lg shadow-sm whitespace-nowrap">Read More</span>
+                        </div>
+
+                        <!-- Quick Navigation Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                            <!-- Quick Request -->
+                            <div onclick="navigate('request')" class="hover-card bg-white p-6 rounded-2xl border border-gray-200 cursor-pointer flex flex-col h-full">
+                                <div class="w-12 h-12 rounded-xl bg-surya-lightblue text-blue-600 flex items-center justify-center text-2xl mb-4"><i class="fas fa-bolt"></i></div>
+                                <h2 class="text-xl font-bold text-gray-900 mb-2">⚡ Quick Request</h2>
+                                <p class="text-sm text-gray-500 mb-4 flex-1">Submit requests for HR, IT Support, Procurement, Finance, or GA/Office needs.</p>
+                                <div class="flex flex-wrap gap-2 mt-auto">
+                                    <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-medium">HR</span>
+                                    <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-medium">IT</span>
+                                    <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-medium">Finance</span>
+                                </div>
+                            </div>
+
+                            <!-- Find Something -->
+                            <div onclick="navigate('sop')" class="hover-card bg-white p-6 rounded-2xl border border-gray-200 cursor-pointer flex flex-col h-full">
+                                <div class="w-12 h-12 rounded-xl bg-surya-lightgreen text-surya-green flex items-center justify-center text-2xl mb-4"><i class="fas fa-search"></i></div>
+                                <h2 class="text-xl font-bold text-gray-900 mb-2">📚 Find Something</h2>
+                                <p class="text-sm text-gray-500 mb-4 flex-1">Search for reference documents, operational SOPs, Guidelines, and Company Policies.</p>
+                                 <div class="flex flex-wrap gap-2 mt-auto">
+                                    <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-medium">SOP</span>
+                                    <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-medium">Policies</span>
+                                    <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-medium">Handbook</span>
+                                </div>
+                            </div>
+
+                            <!-- Quick Links -->
+                            <div onclick="navigate('links')" class="hover-card bg-white p-6 rounded-2xl border border-gray-200 cursor-pointer flex flex-col h-full">
+                                <div class="w-12 h-12 rounded-xl bg-surya-lightyellow text-orange-500 flex items-center justify-center text-2xl mb-4"><i class="fas fa-external-link-alt"></i></div>
+                                <h2 class="text-xl font-bold text-gray-900 mb-2">🔗 Quick Links</h2>
+                                <p class="text-sm text-gray-500 mb-4 flex-1">Fast access to internal platforms like Talenta, ClickUp, and Company Calendar.</p>
+                                <div class="flex flex-wrap gap-2 mt-auto">
+                                    <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-medium">Talenta</span>
+                                    <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-medium">ClickUp</span>
+                                    <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-medium">Drive</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                request: `
+                    <div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12">
+                        <div class="mb-8">
+                            <span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">One Stop Service</span>
+                            <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Request Center</h2>
+                            <p class="text-gray-500 mt-2 text-base max-w-2xl">A central hub to submit requirements to various departments. Choose your request category below.</p>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <!-- HR Request -->
+                            <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:border-surya-green transition-colors group">
+                                <div class="flex items-center space-x-4 mb-4">
+                                    <div class="w-12 h-12 bg-surya-lightgreen text-surya-green rounded-xl flex items-center justify-center text-xl shrink-0"><i class="fas fa-users"></i></div>
+                                    <h3 class="text-lg font-bold text-gray-900">HR Request</h3>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-4 min-h-[40px]">Employment certificate, update employee data, or general HR inquiries.</p>
+                                <button onclick="showToast('Opening HR Request Form')" class="w-full bg-gray-50 border border-gray-200 text-gray-700 font-bold py-2.5 px-4 rounded-xl group-hover:bg-surya-green group-hover:text-white transition-colors flex items-center justify-center space-x-2">
+                                    <span>Fill HR Form</span><i class="fas fa-arrow-right text-xs"></i>
+                                </button>
+                            </div>
+                            <!-- Leave & Attendance -->
+                            <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:border-surya-green transition-colors group">
+                                <div class="flex items-center space-x-4 mb-4">
+                                    <div class="w-12 h-12 bg-surya-lightblue text-blue-600 rounded-xl flex items-center justify-center text-xl shrink-0"><i class="fas fa-calendar-check"></i></div>
+                                    <h3 class="text-lg font-bold text-gray-900">Leave & Attendance</h3>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-4 min-h-[40px]">Leave requests, attendance corrections, or issues related to attendance.</p>
+                                <button onclick="showToast('Opening Talenta Form')" class="w-full bg-gray-50 border border-gray-200 text-gray-700 font-bold py-2.5 px-4 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-colors flex items-center justify-center space-x-2">
+                                    <span>Open Talenta</span><i class="fas fa-external-link-alt text-xs"></i>
+                                </button>
+                            </div>
+                            <!-- Payroll & Benefits -->
+                            <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:border-surya-green transition-colors group">
+                                <div class="flex items-center space-x-4 mb-4">
+                                    <div class="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center text-xl shrink-0"><i class="fas fa-file-invoice-dollar"></i></div>
+                                    <h3 class="text-lg font-bold text-gray-900">Payroll & Benefits</h3>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-4 min-h-[40px]">Payslip inquiries, update BPJS data, insurance claims, and other benefits.</p>
+                                <button onclick="showToast('Opening HR Benefit Form')" class="w-full bg-gray-50 border border-gray-200 text-gray-700 font-bold py-2.5 px-4 rounded-xl group-hover:bg-purple-600 group-hover:text-white transition-colors flex items-center justify-center space-x-2">
+                                    <span>Fill Benefit Form</span><i class="fas fa-arrow-right text-xs"></i>
+                                </button>
+                            </div>
+                            <!-- IT Support -->
+                            <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:border-surya-green transition-colors group">
+                                <div class="flex items-center space-x-4 mb-4">
+                                    <div class="w-12 h-12 bg-gray-100 text-gray-700 rounded-xl flex items-center justify-center text-xl shrink-0"><i class="fas fa-laptop-code"></i></div>
+                                    <h3 class="text-lg font-bold text-gray-900">IT Support</h3>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-4 min-h-[40px]">Request laptop/device, software access, licenses, or technical issues (troubleshooting).</p>
+                                <button onclick="showToast('Opening IT Support Ticket')" class="w-full bg-gray-50 border border-gray-200 text-gray-700 font-bold py-2.5 px-4 rounded-xl group-hover:bg-gray-800 group-hover:text-white transition-colors flex items-center justify-center space-x-2">
+                                    <span>Create IT Ticket</span><i class="fas fa-arrow-right text-xs"></i>
+                                </button>
+                            </div>
+                            <!-- Procurement -->
+                            <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:border-surya-green transition-colors group">
+                                <div class="flex items-center space-x-4 mb-4">
+                                    <div class="w-12 h-12 bg-surya-lightyellow text-orange-600 rounded-xl flex items-center justify-center text-xl shrink-0"><i class="fas fa-shopping-cart"></i></div>
+                                    <h3 class="text-lg font-bold text-gray-900">Procurement</h3>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-4 min-h-[40px]">Purchase Request (PR), vendor requirements, or goods/services procurement processes.</p>
+                                <button onclick="showToast('Opening Procurement Form')" class="w-full bg-gray-50 border border-gray-200 text-gray-700 font-bold py-2.5 px-4 rounded-xl group-hover:bg-orange-500 group-hover:text-white transition-colors flex items-center justify-center space-x-2">
+                                    <span>Fill PR Form</span><i class="fas fa-arrow-right text-xs"></i>
+                                </button>
+                            </div>
+                            <!-- Finance & Reimbursement -->
+                            <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:border-surya-green transition-colors group">
+                                <div class="flex items-center space-x-4 mb-4">
+                                    <div class="w-12 h-12 bg-green-100 text-green-700 rounded-xl flex items-center justify-center text-xl shrink-0"><i class="fas fa-money-bill-wave"></i></div>
+                                    <h3 class="text-lg font-bold text-gray-900">Finance</h3>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-4 min-h-[40px]">Operational expense reimbursement, travel expenses, or other finance-related requests.</p>
+                                <button onclick="showToast('Opening Finance Form')" class="w-full bg-gray-50 border border-gray-200 text-gray-700 font-bold py-2.5 px-4 rounded-xl group-hover:bg-green-600 group-hover:text-white transition-colors flex items-center justify-center space-x-2">
+                                    <span>Reimbursement Form</span><i class="fas fa-arrow-right text-xs"></i>
+                                </button>
+                            </div>
+                            <!-- GA / Office -->
+                            <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:border-surya-green transition-colors group md:col-span-2">
+                                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div class="flex items-center space-x-4">
+                                        <div class="w-12 h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center text-xl shrink-0"><i class="fas fa-building"></i></div>
+                                        <div>
+                                            <h3 class="text-lg font-bold text-gray-900">GA / Office Request</h3>
+                                            <p class="text-sm text-gray-600 mt-1">Office facility needs, office supplies (ATK), room repairs, and other General Affairs.</p>
+                                        </div>
+                                    </div>
+                                    <button onclick="showToast('Opening GA Form')" class="w-full md:w-auto shrink-0 bg-gray-50 border border-gray-200 text-gray-700 font-bold py-2.5 px-6 rounded-xl group-hover:bg-red-600 group-hover:text-white transition-colors">
+                                        Fill GA Form ↗
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                sop: `<div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12"><div class="mb-8"><span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Library</span><h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">SOP & Guidelines</h2><p class="text-gray-500 mt-2 text-base max-w-2xl">Collection of Standard Operating Procedures based on department functions. Master documents are stored in Google Drive.</p></div><div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden"><div class="border-b border-gray-100 last:border-0"><button class="w-full px-6 py-5 flex items-center justify-between focus:outline-none hover:bg-gray-50 transition-colors" onclick="toggleAccordion('sop-hr-en', this)"><div class="flex items-center space-x-4"><div class="w-10 h-10 bg-surya-lightgreen text-surya-green rounded-lg flex items-center justify-center"><i class="fas fa-users"></i></div><div class="text-left"><span class="font-bold text-gray-900 text-lg block">Human Resources (HR)</span><span class="text-xs text-gray-500">Recruitment, Onboarding, Payroll, Performance</span></div></div><i class="fas fa-chevron-down text-gray-400 accordion-icon"></i></button><div id="sop-hr-en" class="accordion-content bg-gray-50/50"><div class="px-6 py-4 grid grid-cols-1 sm:grid-cols-2 gap-3"><a href="#" onclick="showToast('Opening Document'); return false;" class="flex items-center p-3 rounded-xl hover:bg-white border border-transparent text-sm font-medium text-gray-700"><i class="fab fa-google-drive text-gray-400 mr-3 text-lg"></i> SOP Recruitment</a><a href="#" onclick="showToast('Opening Document'); return false;" class="flex items-center p-3 rounded-xl hover:bg-white border border-transparent text-sm font-medium text-gray-700"><i class="fab fa-google-drive text-gray-400 mr-3 text-lg"></i> SOP Onboarding & Offboarding</a><a href="#" onclick="showToast('Opening Document'); return false;" class="flex items-center p-3 rounded-xl hover:bg-white border border-transparent text-sm font-medium text-gray-700"><i class="fab fa-google-drive text-gray-400 mr-3 text-lg"></i> SOP Leave & Attendance</a></div></div></div></div></div>`,
+                policies: `<div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12"><div class="mb-8"><span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Company Rules</span><h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Policies</h2><p class="text-gray-500 mt-2 text-base max-w-2xl">Official company policy documents governing employee rights, obligations, and code of conduct.</p></div><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"><div onclick="showToast('Opening Regulations')" class="bg-white p-5 rounded-2xl border border-gray-200 cursor-pointer transition-all"><div class="w-10 h-10 rounded-lg bg-red-50 text-red-600 flex items-center justify-center text-lg mb-4"><i class="fas fa-book-open"></i></div><h3 class="font-bold text-gray-900 text-base mb-1">Company Regulations</h3><p class="text-xs text-gray-500">Main Company Regulation document registered with Disnaker.</p></div><div onclick="showToast('Opening Travel Policy')" class="bg-white p-5 rounded-2xl border border-gray-200 cursor-pointer transition-all"><div class="w-10 h-10 rounded-lg bg-green-50 text-green-600 flex items-center justify-center text-lg mb-4"><i class="fas fa-suitcase"></i></div><h3 class="font-bold text-gray-900 text-base mb-1">Business Travel Policy</h3><p class="text-xs text-gray-500">Business trip allowances, accommodation, and per diem limits.</p></div></div></div>`,
+                corner: `<div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12"><div class="mb-8"><span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Development & Life</span><h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Employee Corner</h2><p class="text-gray-500 mt-2 text-base max-w-2xl">Materials regarding the employee lifecycle, career development, guides, and internal FAQs.</p></div><div onclick="showToast('Opening Handbook')" class="mb-8 bg-surya-gradient rounded-2xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 cursor-pointer"><div class="z-10 text-gray-900"><h3 class="text-2xl font-extrabold mb-2">Suryanesia Employee Handbook</h3><p class="text-sm font-medium opacity-90 max-w-lg">A comprehensive digital pocketbook about work culture, values, and crucial information.</p></div><button class="z-10 bg-gray-900 text-white font-bold py-3 px-6 rounded-xl shadow-sm">Read Handbook ↗</button></div></div>`,
+                links: `<div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12"><div class="mb-8"><span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Tools & Platforms</span><h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Quick Links</h2><p class="text-gray-500 mt-2 text-base max-w-2xl">Direct access to third-party applications and internal systems.</p></div><div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"><a href="#" onclick="showToast('Opening Talenta'); return false;" class="bg-white border border-gray-200 rounded-xl p-5 flex flex-col items-center justify-center text-center"><div class="w-14 h-14 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center text-2xl mb-3"><i class="fas fa-id-badge"></i></div><h3 class="font-bold text-gray-900 text-sm">Talenta</h3><p class="text-[11px] text-gray-500 mt-1">HRIS, Attendance, Payroll</p></a></div></div>`
+            },
+            id: {
+                home: `
+                    <div class="fade-in max-w-6xl mx-auto p-4 md:p-8 pb-12">
+                        <div class="mb-8 bg-surya-green rounded-3xl p-8 md:p-10 text-white shadow-lg relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
+                            <div class="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+                            <div class="absolute bottom-0 left-0 w-40 h-40 bg-surya-yellow opacity-10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/4"></div>
+                            
+                            <div class="z-10 w-full md:w-2/3">
+                                <span class="inline-block py-1 px-3 rounded-full bg-white/20 text-white text-xs font-bold tracking-wider mb-4 border border-white/30 backdrop-blur-sm">PORTAL KARYAWAN SURYANESIA</span>
+                                <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight mb-3">Semua yang Anda butuhkan,<br>di satu tempat.</h1>
+                                <p class="text-surya-lightgreen text-lg max-w-xl opacity-90">Satu portal untuk mengakses SOP, kebijakan perusahaan, informasi karyawan, dan formulir permintaan.</p>
+                            </div>
+                            <div class="z-10 shrink-0 hidden md:block">
+                                 <div class="w-32 h-32 bg-white rounded-full flex items-center justify-center p-4 shadow-xl">
+                                    <img src="Untitled design (2).jpg" alt="Logo" class="w-full h-full object-contain" onerror="this.src='https://placehold.co/200x200/fff/00783d?text=Logo'">
+                                 </div>
+                            </div>
+                        </div>
+
+                        <div onclick="showToast('Membuka Pengumuman Townhall')" class="mb-10 bg-surya-lightyellow border border-surya-yellow/50 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 cursor-pointer hover:shadow-md transition-all group">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-12 h-12 bg-surya-yellow text-surya-green rounded-xl flex items-center justify-center text-xl shrink-0 shadow-sm"><i class="fas fa-bullhorn"></i></div>
+                                <div>
+                                    <h3 class="text-base font-bold text-gray-900 group-hover:text-surya-green transition-colors">📢 PEMBARUAN PERUSAHAAN: Rapat Townhall Q3</h3>
+                                    <p class="text-gray-600 text-sm mt-0.5">Jumat, 25 Agustus 2026. Kehadiran wajib bagi seluruh karyawan. Cek agenda selengkapnya.</p>
+                                </div>
+                            </div>
+                            <span class="text-surya-green font-bold text-sm bg-white px-4 py-2 rounded-lg shadow-sm whitespace-nowrap">Baca Selengkapnya</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                            <div onclick="navigate('request')" class="hover-card bg-white p-6 rounded-2xl border border-gray-200 cursor-pointer flex flex-col h-full">
+                                <div class="w-12 h-12 rounded-xl bg-surya-lightblue text-blue-600 flex items-center justify-center text-2xl mb-4"><i class="fas fa-bolt"></i></div>
+                                <h2 class="text-xl font-bold text-gray-900 mb-2">⚡ Permintaan Cepat</h2>
+                                <p class="text-sm text-gray-500 mb-4 flex-1">Ajukan permintaan untuk kebutuhan HR, IT Support, Procurement, Finance, atau GA/Kantor.</p>
+                                <div class="flex flex-wrap gap-2 mt-auto">
+                                    <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-medium">HR</span>
+                                    <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-medium">IT</span>
+                                    <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-medium">Keuangan</span>
+                                </div>
+                            </div>
+
+                            <div onclick="navigate('sop')" class="hover-card bg-white p-6 rounded-2xl border border-gray-200 cursor-pointer flex flex-col h-full">
+                                <div class="w-12 h-12 rounded-xl bg-surya-lightgreen text-surya-green flex items-center justify-center text-2xl mb-4"><i class="fas fa-search"></i></div>
+                                <h2 class="text-xl font-bold text-gray-900 mb-2">📚 Cari Sesuatu</h2>
+                                <p class="text-sm text-gray-500 mb-4 flex-1">Cari dokumen referensi, SOP operasional, Panduan, dan Kebijakan Perusahaan.</p>
+                                 <div class="flex flex-wrap gap-2 mt-auto">
+                                    <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-medium">SOP</span>
+                                    <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-medium">Kebijakan</span>
+                                    <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-medium">Buku Panduan</span>
+                                </div>
+                            </div>
+
+                            <div onclick="navigate('links')" class="hover-card bg-white p-6 rounded-2xl border border-gray-200 cursor-pointer flex flex-col h-full">
+                                <div class="w-12 h-12 rounded-xl bg-surya-lightyellow text-orange-500 flex items-center justify-center text-2xl mb-4"><i class="fas fa-external-link-alt"></i></div>
+                                <h2 class="text-xl font-bold text-gray-900 mb-2">🔗 Tautan Cepat</h2>
+                                <p class="text-sm text-gray-500 mb-4 flex-1">Akses cepat ke platform internal seperti Talenta, ClickUp, dan Kalender Perusahaan.</p>
+                                <div class="flex flex-wrap gap-2 mt-auto">
+                                    <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-medium">Talenta</span>
+                                    <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-medium">ClickUp</span>
+                                    <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md font-medium">Drive</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                request: `
+                    <div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12">
+                        <div class="mb-8">
+                            <span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Layanan Terpadu</span>
+                            <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Pusat Bantuan</h2>
+                            <p class="text-gray-500 mt-2 text-base max-w-2xl">Pusat layanan untuk mengajukan kebutuhan ke berbagai departemen. Pilih kategori permintaan Anda di bawah ini.</p>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:border-surya-green transition-colors group">
+                                <div class="flex items-center space-x-4 mb-4">
+                                    <div class="w-12 h-12 bg-surya-lightgreen text-surya-green rounded-xl flex items-center justify-center text-xl shrink-0"><i class="fas fa-users"></i></div>
+                                    <h3 class="text-lg font-bold text-gray-900">Permintaan HR</h3>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-4 min-h-[40px]">Surat keterangan kerja, pembaruan data karyawan, atau pertanyaan HR umum.</p>
+                                <button onclick="showToast('Membuka Form Permintaan HR')" class="w-full bg-gray-50 border border-gray-200 text-gray-700 font-bold py-2.5 px-4 rounded-xl group-hover:bg-surya-green group-hover:text-white transition-colors flex items-center justify-center space-x-2">
+                                    <span>Isi Form HR</span><i class="fas fa-arrow-right text-xs"></i>
+                                </button>
+                            </div>
+                            <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:border-surya-green transition-colors group">
+                                <div class="flex items-center space-x-4 mb-4">
+                                    <div class="w-12 h-12 bg-surya-lightblue text-blue-600 rounded-xl flex items-center justify-center text-xl shrink-0"><i class="fas fa-calendar-check"></i></div>
+                                    <h3 class="text-lg font-bold text-gray-900">Cuti & Kehadiran</h3>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-4 min-h-[40px]">Permintaan cuti, koreksi absensi, atau masalah terkait kehadiran.</p>
+                                <button onclick="showToast('Membuka Form Talenta')" class="w-full bg-gray-50 border border-gray-200 text-gray-700 font-bold py-2.5 px-4 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-colors flex items-center justify-center space-x-2">
+                                    <span>Buka Talenta</span><i class="fas fa-external-link-alt text-xs"></i>
+                                </button>
+                            </div>
+                            <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:border-surya-green transition-colors group">
+                                <div class="flex items-center space-x-4 mb-4">
+                                    <div class="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center text-xl shrink-0"><i class="fas fa-file-invoice-dollar"></i></div>
+                                    <h3 class="text-lg font-bold text-gray-900">Penggajian & Benefit</h3>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-4 min-h-[40px]">Pertanyaan slip gaji, update data BPJS, klaim asuransi, dan benefit lainnya.</p>
+                                <button onclick="showToast('Membuka Form Benefit')" class="w-full bg-gray-50 border border-gray-200 text-gray-700 font-bold py-2.5 px-4 rounded-xl group-hover:bg-purple-600 group-hover:text-white transition-colors flex items-center justify-center space-x-2">
+                                    <span>Isi Form Benefit</span><i class="fas fa-arrow-right text-xs"></i>
+                                </button>
+                            </div>
+                            <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:border-surya-green transition-colors group">
+                                <div class="flex items-center space-x-4 mb-4">
+                                    <div class="w-12 h-12 bg-gray-100 text-gray-700 rounded-xl flex items-center justify-center text-xl shrink-0"><i class="fas fa-laptop-code"></i></div>
+                                    <h3 class="text-lg font-bold text-gray-900">Dukungan IT</h3>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-4 min-h-[40px]">Permintaan laptop/perangkat, akses software, lisensi, atau masalah teknis.</p>
+                                <button onclick="showToast('Membuat Tiket IT')" class="w-full bg-gray-50 border border-gray-200 text-gray-700 font-bold py-2.5 px-4 rounded-xl group-hover:bg-gray-800 group-hover:text-white transition-colors flex items-center justify-center space-x-2">
+                                    <span>Buat Tiket IT</span><i class="fas fa-arrow-right text-xs"></i>
+                                </button>
+                            </div>
+                            <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:border-surya-green transition-colors group">
+                                <div class="flex items-center space-x-4 mb-4">
+                                    <div class="w-12 h-12 bg-surya-lightyellow text-orange-600 rounded-xl flex items-center justify-center text-xl shrink-0"><i class="fas fa-shopping-cart"></i></div>
+                                    <h3 class="text-lg font-bold text-gray-900">Pengadaan (Procurement)</h3>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-4 min-h-[40px]">Permintaan Pembelian (PR), kebutuhan vendor, atau proses pengadaan barang/jasa.</p>
+                                <button onclick="showToast('Membuka Form PR')" class="w-full bg-gray-50 border border-gray-200 text-gray-700 font-bold py-2.5 px-4 rounded-xl group-hover:bg-orange-500 group-hover:text-white transition-colors flex items-center justify-center space-x-2">
+                                    <span>Isi Form PR</span><i class="fas fa-arrow-right text-xs"></i>
+                                </button>
+                            </div>
+                            <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:border-surya-green transition-colors group">
+                                <div class="flex items-center space-x-4 mb-4">
+                                    <div class="w-12 h-12 bg-green-100 text-green-700 rounded-xl flex items-center justify-center text-xl shrink-0"><i class="fas fa-money-bill-wave"></i></div>
+                                    <h3 class="text-lg font-bold text-gray-900">Keuangan (Finance)</h3>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-4 min-h-[40px]">Reimbursement biaya operasional, biaya perjalanan dinas, atau permintaan terkait keuangan lainnya.</p>
+                                <button onclick="showToast('Membuka Form Reimbursement')" class="w-full bg-gray-50 border border-gray-200 text-gray-700 font-bold py-2.5 px-4 rounded-xl group-hover:bg-green-600 group-hover:text-white transition-colors flex items-center justify-center space-x-2">
+                                    <span>Form Reimbursement</span><i class="fas fa-arrow-right text-xs"></i>
+                                </button>
+                            </div>
+                            <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:border-surya-green transition-colors group md:col-span-2">
+                                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div class="flex items-center space-x-4">
+                                        <div class="w-12 h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center text-xl shrink-0"><i class="fas fa-building"></i></div>
+                                        <div>
+                                            <h3 class="text-lg font-bold text-gray-900">Permintaan GA / Kantor</h3>
+                                            <p class="text-sm text-gray-600 mt-1">Kebutuhan fasilitas kantor, alat tulis kantor (ATK), perbaikan ruangan, dan General Affairs lainnya.</p>
+                                        </div>
+                                    </div>
+                                    <button onclick="showToast('Membuka Form GA')" class="w-full md:w-auto shrink-0 bg-gray-50 border border-gray-200 text-gray-700 font-bold py-2.5 px-6 rounded-xl group-hover:bg-red-600 group-hover:text-white transition-colors">
+                                        Isi Form GA ↗
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                sop: `<div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12"><div class="mb-8"><span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Pustaka</span><h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">SOP & Panduan</h2><p class="text-gray-500 mt-2 text-base max-w-2xl">Kumpulan Standar Operasional Prosedur berdasarkan fungsi departemen. Dokumen master disimpan di Google Drive.</p></div><div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden"><div class="border-b border-gray-100 last:border-0"><button class="w-full px-6 py-5 flex items-center justify-between focus:outline-none hover:bg-gray-50 transition-colors" onclick="toggleAccordion('sop-hr-id', this)"><div class="flex items-center space-x-4"><div class="w-10 h-10 bg-surya-lightgreen text-surya-green rounded-lg flex items-center justify-center"><i class="fas fa-users"></i></div><div class="text-left"><span class="font-bold text-gray-900 text-lg block">Sumber Daya Manusia (HR)</span><span class="text-xs text-gray-500">Rekrutmen, Onboarding, Penggajian, Kinerja</span></div></div><i class="fas fa-chevron-down text-gray-400 accordion-icon"></i></button><div id="sop-hr-id" class="accordion-content bg-gray-50/50"><div class="px-6 py-4 grid grid-cols-1 sm:grid-cols-2 gap-3"><a href="#" onclick="showToast('Membuka Dokumen'); return false;" class="flex items-center p-3 rounded-xl hover:bg-white border border-transparent text-sm font-medium text-gray-700"><i class="fab fa-google-drive text-gray-400 mr-3 text-lg"></i> SOP Rekrutmen</a><a href="#" onclick="showToast('Membuka Dokumen'); return false;" class="flex items-center p-3 rounded-xl hover:bg-white border border-transparent text-sm font-medium text-gray-700"><i class="fab fa-google-drive text-gray-400 mr-3 text-lg"></i> SOP Onboarding & Offboarding</a><a href="#" onclick="showToast('Membuka Dokumen'); return false;" class="flex items-center p-3 rounded-xl hover:bg-white border border-transparent text-sm font-medium text-gray-700"><i class="fab fa-google-drive text-gray-400 mr-3 text-lg"></i> SOP Cuti & Kehadiran</a></div></div></div></div></div>`,
+                policies: `<div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12"><div class="mb-8"><span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Peraturan Perusahaan</span><h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Kebijakan</h2><p class="text-gray-500 mt-2 text-base max-w-2xl">Dokumen kebijakan resmi perusahaan yang mengatur hak, kewajiban, dan kode etik karyawan.</p></div><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"><div onclick="showToast('Membuka Peraturan Perusahaan')" class="bg-white p-5 rounded-2xl border border-gray-200 cursor-pointer transition-all"><div class="w-10 h-10 rounded-lg bg-red-50 text-red-600 flex items-center justify-center text-lg mb-4"><i class="fas fa-book-open"></i></div><h3 class="font-bold text-gray-900 text-base mb-1">Peraturan Perusahaan</h3><p class="text-xs text-gray-500">Dokumen Peraturan Perusahaan utama yang terdaftar di Disnaker.</p></div><div onclick="showToast('Membuka Kebijakan Perjalanan')" class="bg-white p-5 rounded-2xl border border-gray-200 cursor-pointer transition-all"><div class="w-10 h-10 rounded-lg bg-green-50 text-green-600 flex items-center justify-center text-lg mb-4"><i class="fas fa-suitcase"></i></div><h3 class="font-bold text-gray-900 text-base mb-1">Kebijakan Perjalanan Dinas</h3><p class="text-xs text-gray-500">Tunjangan perjalanan dinas, akomodasi, dan batas per diem.</p></div></div></div>`,
+                corner: `<div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12"><div class="mb-8"><span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Pengembangan & Kehidupan</span><h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Pojok Karyawan</h2><p class="text-gray-500 mt-2 text-base max-w-2xl">Materi mengenai siklus hidup karyawan, pengembangan karir, panduan, dan FAQ internal.</p></div><div onclick="showToast('Membuka Buku Panduan')" class="mb-8 bg-surya-gradient rounded-2xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 cursor-pointer"><div class="z-10 text-gray-900"><h3 class="text-2xl font-extrabold mb-2">Buku Panduan Karyawan Suryanesia</h3><p class="text-sm font-medium opacity-90 max-w-lg">Buku saku digital komprehensif tentang budaya kerja, nilai-nilai, dan informasi penting.</p></div><button class="z-10 bg-gray-900 text-white font-bold py-3 px-6 rounded-xl shadow-sm">Baca Panduan ↗</button></div></div>`,
+                links: `<div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12"><div class="mb-8"><span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Alat & Platform</span><h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Tautan Cepat</h2><p class="text-gray-500 mt-2 text-base max-w-2xl">Akses langsung ke aplikasi pihak ketiga dan sistem internal yang digunakan.</p></div><div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"><a href="#" onclick="showToast('Membuka Talenta'); return false;" class="bg-white border border-gray-200 rounded-xl p-5 flex flex-col items-center justify-center text-center"><div class="w-14 h-14 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center text-2xl mb-3"><i class="fas fa-id-badge"></i></div><h3 class="font-bold text-gray-900 text-sm">Talenta</h3><p class="text-[11px] text-gray-500 mt-1">HRIS, Kehadiran, Penggajian</p></a></div></div>`
+            }
+        };
+
+        function setLanguage(lang) {
+            if (currentLang === lang) return;
+            currentLang = lang;
+
+            // Update language toggle button styles
+            const btnEN = document.getElementById('btn-lang-en');
+            const btnID = document.getElementById('btn-lang-id');
+            
+            if (lang === 'en') {
+                btnEN.className = "px-3 py-1 rounded-full text-xs font-bold bg-white text-surya-green shadow-sm transition-colors";
+                btnID.className = "px-3 py-1 rounded-full text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors";
+                showToast('English language selected');
+            } else {
+                btnID.className = "px-3 py-1 rounded-full text-xs font-bold bg-white text-surya-green shadow-sm transition-colors";
+                btnEN.className = "px-3 py-1 rounded-full text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors";
+                showToast('Bahasa Indonesia dipilih');
+            }
+
+            // Update static elements
+            document.getElementById('txt-main-menu').innerText = uiTranslations[lang].mainMenu;
+            document.getElementById('txt-nav-home').innerText = uiTranslations[lang].navHome;
+            document.getElementById('txt-nav-request').innerText = uiTranslations[lang].navRequest;
+            document.getElementById('txt-nav-sop').innerText = uiTranslations[lang].navSOP;
+            document.getElementById('txt-nav-policies').innerText = uiTranslations[lang].navPolicies;
+            document.getElementById('txt-nav-corner').innerText = uiTranslations[lang].navCorner;
+            document.getElementById('txt-nav-links').innerText = uiTranslations[lang].navLinks;
+            document.getElementById('txt-profile-title').innerText = uiTranslations[lang].profileTitle;
+            document.getElementById('txt-profile-sub').innerText = uiTranslations[lang].profileSub;
+            document.getElementById('search-input').placeholder = uiTranslations[lang].searchPlaceholder;
+
+            // Instantly re-render the current view
+            renderView(currentViewId, true);
+        }
+
+        function navigate(viewId) {
+            currentViewId = viewId;
+            renderView(viewId, false);
+        }
+
+        function renderView(viewId, isLangSwitch) {
+            const contentArea = document.getElementById('content-area');
+            
+            // Simple fade out
+            contentArea.style.opacity = '0';
+            
+            setTimeout(() => {
+                // Inject HTML using current view and language
+                contentArea.innerHTML = views[currentLang][viewId] || views[currentLang]['home'];
+                // Reset scroll unless we are just toggling languages
+                if (!isLangSwitch) contentArea.scrollTop = 0; 
+                // Fade in
+                contentArea.style.opacity = '1';
+
+                // Update Sidebar Active States
+                const navIds = ['nav-home', 'nav-request', 'nav-sop', 'nav-policies', 'nav-corner', 'nav-links'];
+                navIds.forEach(id => {
+                    const btn = document.getElementById(id);
+                    if(btn) {
+                        btn.className = 'nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all';
+                        if(id === 'nav-' + viewId) {
+                            btn.className = 'nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-surya-green bg-surya-lightgreen font-bold transition-all shadow-sm ring-1 ring-surya-green/20';
+                        }
+                    }
+                });
+            }, 150);
+        }
+
+        // Global Toast Notification Logic
+        function showToast(message) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'bg-gray-900 text-white px-5 py-3 rounded-xl shadow-2xl text-sm font-medium flex items-center space-x-3 toast-enter pointer-events-auto border border-gray-700';
+            toast.innerHTML = `<i class="fas fa-info-circle text-surya-yellow"></i><span>${message}</span>`;
+            
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.replace('toast-enter', 'toast-exit');
+                setTimeout(() => {
+                    if (container.contains(toast)) container.removeChild(toast);
+                }, 300); 
+            }, 2500);
+        }
+
+        // Accordion Logic for SOP Page
+        function toggleAccordion(id, btnElement) {
+            const content = document.getElementById(id);
+            const icon = btnElement.querySelector('.accordion-icon');
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                icon.classList.remove('rotated');
+            } else {
+                content.classList.add('expanded');
+                icon.classList.add('rotated');
+            }
+        }
+
+        // Initialize on load
+        window.onload = function() {
+            setLanguage('en'); // Enforce default EN styles and content on load
+            navigate('home');
+        };
+    </script>
+</body>
+</html>

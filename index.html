@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Suryanesia Employee Hub</title>
+    <title>Suryanesia HR Helpdesk</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -110,15 +110,35 @@
         .bg-surya-gradient {
             background: linear-gradient(135deg, #fad96c 0%, #fdc26e 100%);
         }
+
+        @media (max-width: 639px) {
+            .hover-card:hover {
+                transform: none;
+            }
+
+            #content-area {
+                -webkit-overflow-scrolling: touch;
+            }
+
+            #toast-container {
+                width: calc(100% - 2rem);
+            }
+
+            #toast-container > div {
+                width: 100%;
+                justify-content: center;
+                text-align: center;
+            }
+        }
     </style>
 </head>
 <body class="text-gray-800 h-screen flex overflow-hidden selection:bg-surya-green selection:text-white">
 
     <!-- Sidebar Navigation -->
-    <aside class="w-72 bg-white border-r border-gray-200 flex flex-col hidden md:flex h-full z-20 shrink-0">
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] -translate-x-full flex-col bg-white border-r border-gray-200 h-full shrink-0 shadow-2xl transition-transform duration-300 md:relative md:z-20 md:max-w-none md:translate-x-0 md:shadow-none">
         <div class="p-6 flex items-center justify-start border-b border-gray-100 h-20">
             <!-- Using the provided logo -->
-            <img src="Untitled design (2).jpg" alt="Suryanesia Logo" class="h-10 object-contain">
+            <img src="logo-green.png" alt="Suryanesia Logo" class="h-10 object-contain">
         </div>
         
         <div class="px-4 py-6 overflow-y-auto flex-1">
@@ -158,14 +178,17 @@
             </div>
         </div>
     </aside>
+    <button id="sidebar-backdrop" type="button" onclick="toggleSidebar(false)" class="fixed inset-0 z-40 hidden bg-gray-900/40 md:hidden" aria-label="Tutup menu"></button>
 
     <main class="flex-1 flex flex-col h-full overflow-hidden bg-surya-gray relative">
         <!-- Top Header -->
         <header class="bg-white border-b border-gray-200/60 z-10 px-4 md:px-8 h-20 flex items-center justify-between sticky top-0 shrink-0 shadow-sm backdrop-blur-md bg-white/90">
             <!-- Mobile Menu Toggle -->
             <div class="flex items-center space-x-4 md:hidden">
-                <button class="text-gray-600 hover:text-surya-green"><i class="fas fa-bars text-xl"></i></button>
-                <img src="Untitled design (2).jpg" alt="Suryanesia Logo" class="h-8 object-contain">
+                <button type="button" onclick="toggleSidebar(true)" class="rounded-lg p-2 text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green" aria-label="Buka menu">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+                <img src="logo-green.png" alt="Suryanesia Logo" class="h-8 object-contain">
             </div>
             
             <!-- Global Search -->
@@ -182,7 +205,13 @@
             </div>
             
             <!-- Right Actions -->
-            <div class="flex items-center space-x-4 ml-auto sm:ml-4">
+            <div class="flex items-center space-x-2 sm:space-x-4 ml-auto sm:ml-4">
+                <button type="button" onclick="openTicketForm()" class="flex h-10 w-10 items-center justify-center rounded-xl bg-surya-green text-white shadow-sm hover:bg-green-800 sm:hidden" aria-label="Buat tiket">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <button onclick="openTicketForm()" class="hidden sm:flex items-center gap-2 bg-surya-green text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:bg-green-800 transition-colors">
+                    <i class="fas fa-plus"></i><span id="txt-new-ticket">Buat Tiket</span>
+                </button>
                 <!-- Language Toggle -->
                 <div class="flex items-center bg-gray-100 rounded-full p-1 border border-gray-200">
                     <button id="btn-lang-id" class="px-3 py-1 rounded-full text-xs font-bold text-gray-500 hover:text-gray-700 transition-colors" onclick="setLanguage('id')">ID</button>
@@ -205,8 +234,46 @@
     <!-- Global Toast Container -->
     <div id="toast-container" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center pointer-events-none gap-2"></div>
 
+    <!-- New HR Ticket Modal -->
+    <div id="ticket-modal" class="fixed inset-0 z-[90] hidden items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="ticket-modal-title">
+        <div class="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
+            <div class="flex items-center justify-between border-b border-gray-100 px-6 py-5">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-surya-green" id="ticket-modal-label">HR Helpdesk</p>
+                    <h2 class="text-xl font-extrabold text-gray-900" id="ticket-modal-title">Buat tiket baru</h2>
+                </div>
+                <button type="button" onclick="closeTicketForm()" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Tutup">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="ticket-form" class="space-y-4 p-6">
+                <label class="block">
+                    <span class="mb-1.5 block text-sm font-bold text-gray-700" id="ticket-category-label">Kategori bantuan</span>
+                    <select id="ticket-category" required class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen">
+                        <option>Administrasi HR</option>
+                        <option>Cuti & Kehadiran</option>
+                        <option>Payroll & Benefit</option>
+                        <option>Pengembangan Karyawan</option>
+                    </select>
+                </label>
+                <label class="block">
+                    <span class="mb-1.5 block text-sm font-bold text-gray-700" id="ticket-subject-label">Subjek</span>
+                    <input id="ticket-subject" required maxlength="100" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen" placeholder="Contoh: Surat keterangan kerja">
+                </label>
+                <label class="block">
+                    <span class="mb-1.5 block text-sm font-bold text-gray-700" id="ticket-description-label">Deskripsi</span>
+                    <textarea id="ticket-description" required rows="4" class="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen" placeholder="Jelaskan kebutuhan Anda secara singkat"></textarea>
+                </label>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" onclick="closeTicketForm()" class="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-50" id="ticket-cancel">Batal</button>
+                    <button type="submit" class="rounded-xl bg-surya-green px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-green-800" id="ticket-submit">Kirim tiket</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
-        let currentLang = 'en';
+        let currentLang = '';
         let currentViewId = 'home';
 
         // Static UI Translations
@@ -221,6 +288,7 @@
                 navLinks: "Quick Links",
                 profileTitle: "Employee Profile",
                 profileSub: "View Settings",
+                newTicket: "New Ticket",
                 searchPlaceholder: "Search SOPs, policies, forms..."
             },
             id: {
@@ -233,6 +301,7 @@
                 navLinks: "Tautan Cepat",
                 profileTitle: "Profil Karyawan",
                 profileSub: "Lihat Pengaturan",
+                newTicket: "Buat Tiket",
                 searchPlaceholder: "Cari SOP, kebijakan, formulir..."
             }
         };
@@ -247,13 +316,13 @@
                             <div class="absolute bottom-0 left-0 w-40 h-40 bg-surya-yellow opacity-10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/4"></div>
                             
                             <div class="z-10 w-full md:w-2/3">
-                                <span class="inline-block py-1 px-3 rounded-full bg-white/20 text-white text-xs font-bold tracking-wider mb-4 border border-white/30 backdrop-blur-sm">SURYANESIA EMPLOYEE HUB</span>
-                                <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight mb-3">Everything you need,<br>in one place.</h1>
-                                <p class="text-surya-lightgreen text-lg max-w-xl opacity-90">A single portal to access SOPs, company policies, employee information, and request forms.</p>
+                                <span class="inline-block py-1 px-3 rounded-full bg-white/20 text-white text-xs font-bold tracking-wider mb-4 border border-white/30 backdrop-blur-sm">SURYANESIA HR HELPDESK</span>
+                                <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight mb-3">Your HR needs,<br>made simpler.</h1>
+                                <p class="text-surya-lightgreen text-lg max-w-xl opacity-90">Ajukan pertanyaan, lacak tiket, dan temukan informasi HR dalam satu portal yang mudah digunakan.</p>
                             </div>
                             <div class="z-10 shrink-0 hidden md:block">
                                  <div class="w-32 h-32 bg-white rounded-full flex items-center justify-center p-4 shadow-xl">
-                                    <img src="Untitled design (2).jpg" alt="Logo" class="w-full h-full object-contain" onerror="this.src='https://placehold.co/200x200/fff/00783d?text=Logo'">
+                                    <img src="logo-green.png" alt="Logo" class="w-full h-full object-contain">
                                  </div>
                             </div>
                         </div>
@@ -325,7 +394,7 @@
                                     <h3 class="text-lg font-bold text-gray-900">HR Request</h3>
                                 </div>
                                 <p class="text-sm text-gray-600 mb-4 min-h-[40px]">Employment certificate, update employee data, or general HR inquiries.</p>
-                                <button onclick="showToast('Opening HR Request Form')" class="w-full bg-gray-50 border border-gray-200 text-gray-700 font-bold py-2.5 px-4 rounded-xl group-hover:bg-surya-green group-hover:text-white transition-colors flex items-center justify-center space-x-2">
+                                <button onclick="openTicketForm()" class="w-full bg-gray-50 border border-gray-200 text-gray-700 font-bold py-2.5 px-4 rounded-xl group-hover:bg-surya-green group-hover:text-white transition-colors flex items-center justify-center space-x-2">
                                     <span>Fill HR Form</span><i class="fas fa-arrow-right text-xs"></i>
                                 </button>
                             </div>
@@ -416,12 +485,12 @@
                             
                             <div class="z-10 w-full md:w-2/3">
                                 <span class="inline-block py-1 px-3 rounded-full bg-white/20 text-white text-xs font-bold tracking-wider mb-4 border border-white/30 backdrop-blur-sm">PORTAL KARYAWAN SURYANESIA</span>
-                                <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight mb-3">Semua yang Anda butuhkan,<br>di satu tempat.</h1>
+                                <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight mb-3">Kebutuhan HR Anda,<br>lebih mudah.</h1>
                                 <p class="text-surya-lightgreen text-lg max-w-xl opacity-90">Satu portal untuk mengakses SOP, kebijakan perusahaan, informasi karyawan, dan formulir permintaan.</p>
                             </div>
                             <div class="z-10 shrink-0 hidden md:block">
                                  <div class="w-32 h-32 bg-white rounded-full flex items-center justify-center p-4 shadow-xl">
-                                    <img src="Untitled design (2).jpg" alt="Logo" class="w-full h-full object-contain" onerror="this.src='https://placehold.co/200x200/fff/00783d?text=Logo'">
+                                    <img src="logo-green.png" alt="Logo" class="w-full h-full object-contain">
                                  </div>
                             </div>
                         </div>
@@ -593,7 +662,15 @@
             document.getElementById('txt-nav-links').innerText = uiTranslations[lang].navLinks;
             document.getElementById('txt-profile-title').innerText = uiTranslations[lang].profileTitle;
             document.getElementById('txt-profile-sub').innerText = uiTranslations[lang].profileSub;
+            document.getElementById('txt-new-ticket').innerText = uiTranslations[lang].newTicket;
             document.getElementById('search-input').placeholder = uiTranslations[lang].searchPlaceholder;
+            document.getElementById('ticket-modal-label').innerText = lang === 'id' ? 'HR Helpdesk' : 'HR Helpdesk';
+            document.getElementById('ticket-modal-title').innerText = lang === 'id' ? 'Buat tiket baru' : 'Create a new ticket';
+            document.getElementById('ticket-category-label').innerText = lang === 'id' ? 'Kategori bantuan' : 'Support category';
+            document.getElementById('ticket-subject-label').innerText = lang === 'id' ? 'Subjek' : 'Subject';
+            document.getElementById('ticket-description-label').innerText = lang === 'id' ? 'Deskripsi' : 'Description';
+            document.getElementById('ticket-cancel').innerText = lang === 'id' ? 'Batal' : 'Cancel';
+            document.getElementById('ticket-submit').innerText = lang === 'id' ? 'Kirim tiket' : 'Submit ticket';
 
             // Instantly re-render the current view
             renderView(currentViewId, true);
@@ -601,7 +678,18 @@
 
         function navigate(viewId) {
             currentViewId = viewId;
+            toggleSidebar(false);
             renderView(viewId, false);
+        }
+
+        function toggleSidebar(isOpen) {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            if (!sidebar || !backdrop) return;
+
+            sidebar.classList.toggle('-translate-x-full', !isOpen);
+            sidebar.classList.toggle('translate-x-0', isOpen);
+            backdrop.classList.toggle('hidden', !isOpen);
         }
 
         function renderView(viewId, isLangSwitch) {
@@ -648,6 +736,30 @@
             }, 2500);
         }
 
+        function openTicketForm() {
+            const modal = document.getElementById('ticket-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.getElementById('ticket-subject').focus();
+        }
+
+        function closeTicketForm() {
+            const modal = document.getElementById('ticket-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        document.getElementById('ticket-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+            const subject = document.getElementById('ticket-subject').value.trim();
+            const message = currentLang === 'id'
+                ? `Tiket "${subject}" berhasil dibuat. Tim HR akan segera menindaklanjuti.`
+                : `Ticket "${subject}" was created. The HR team will follow up shortly.`;
+            closeTicketForm();
+            this.reset();
+            showToast(message);
+        });
+
         // Accordion Logic for SOP Page
         function toggleAccordion(id, btnElement) {
             const content = document.getElementById(id);
@@ -663,9 +775,16 @@
 
         // Initialize on load
         window.onload = function() {
-            setLanguage('en'); // Enforce default EN styles and content on load
+            setLanguage('id');
             navigate('home');
         };
+
+        window.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                toggleSidebar(false);
+                closeTicketForm();
+            }
+        });
     </script>
 </body>
 </html>

@@ -163,6 +163,9 @@
                 <button onclick="navigate('links')" id="nav-links" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
                     <i class="fas fa-link w-5 text-center text-lg"></i><span id="txt-nav-links">Quick Links</span>
                 </button>
+                <a href="admin.html" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
+                    <i class="fas fa-chart-line w-5 text-center text-lg"></i><span>Admin Dashboard</span>
+                </a>
             </nav>
         </div>
 
@@ -752,6 +755,19 @@
 
         document.getElementById('ticket-form').addEventListener('submit', function (event) {
             event.preventDefault();
+            const tickets = JSON.parse(localStorage.getItem('suryanesiaHelpdeskTickets') || '[]');
+            const ticketNumber = String(Date.now()).slice(-6);
+            tickets.unshift({
+                id: `HD-${ticketNumber}`,
+                category: document.getElementById('ticket-category').value,
+                subject: document.getElementById('ticket-subject').value.trim(),
+                description: document.getElementById('ticket-description').value.trim(),
+                requester: 'Employee',
+                status: 'open',
+                updatedAt: new Date().toISOString()
+            });
+            localStorage.setItem('suryanesiaHelpdeskTickets', JSON.stringify(tickets));
+
             const subject = document.getElementById('ticket-subject').value.trim();
             const message = currentLang === 'id'
                 ? `Tiket "${subject}" berhasil dibuat. Tim HR akan segera menindaklanjuti.`

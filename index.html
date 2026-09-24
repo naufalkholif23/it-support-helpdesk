@@ -168,8 +168,20 @@
                 <button onclick="navigate('home')" id="nav-home" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
                     <i class="fas fa-home w-5 text-center text-lg"></i><span id="txt-nav-home">Home</span>
                 </button>
+                <button onclick="openAiAssistant()" id="nav-ai-assistant" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
+                    <i class="fas fa-robot w-5 text-center text-lg"></i><span>AI Assistant</span>
+                </button>
+                <button onclick="navigate('my-tickets')" id="nav-my-tickets" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
+                    <i class="fas fa-ticket-alt w-5 text-center text-lg"></i><span>My Tickets</span>
+                </button>
                 <button onclick="navigate('request')" id="nav-request" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
                     <i class="fas fa-concierge-bell w-5 text-center text-lg"></i><span id="txt-nav-request">Request Center</span>
+                </button>
+                <button onclick="navigate('assets')" id="nav-assets" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
+                    <i class="fas fa-laptop w-5 text-center text-lg"></i><span>My Assets</span>
+                </button>
+                <button onclick="navigate('knowledge-base')" id="nav-knowledge-base" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
+                    <i class="fas fa-book-open w-5 text-center text-lg"></i><span>Knowledge Base</span>
                 </button>
                 <button onclick="navigate('sop')" id="nav-sop" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
                     <i class="fas fa-book w-5 text-center text-lg"></i><span id="txt-nav-sop">SOP & Guidelines</span>
@@ -177,28 +189,30 @@
                 <button onclick="navigate('policies')" id="nav-policies" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
                     <i class="fas fa-gavel w-5 text-center text-lg"></i><span id="txt-nav-policies">Policies</span>
                 </button>
-                <button onclick="navigate('corner')" id="nav-corner" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-user-circle w-5 text-center text-lg"></i><span id="txt-nav-corner">Employee Corner</span>
+                <button onclick="navigate('announcements')" id="nav-announcements" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
+                    <i class="fas fa-bullhorn w-5 text-center text-lg"></i><span>Announcements</span>
                 </button>
-                <button onclick="navigate('links')" id="nav-links" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-link w-5 text-center text-lg"></i><span id="txt-nav-links">Quick Links</span>
+                <button onclick="navigate('profile')" id="nav-profile" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
+                    <i class="fas fa-user-circle w-5 text-center text-lg"></i><span>Profile</span>
                 </button>
-                <a href="admin.html" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
+                <button type="button" id="nav-admin-dashboard" onclick="window.location.href='admin.html'" class="hidden nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
                     <i class="fas fa-chart-line w-5 text-center text-lg"></i><span>Admin Dashboard</span>
-                </a>
+                </button>
             </nav>
         </div>
 
         <!-- User Profile Section -->
         <div class="mt-auto p-4 border-t border-gray-100 bg-gray-50/50">
             <div class="flex items-center space-x-3 p-2 rounded-xl hover:bg-gray-100 cursor-pointer transition-colors">
-                <div class="w-10 h-10 rounded-full bg-surya-green flex items-center justify-center text-white font-bold text-sm shadow-sm">
-                    EP
+                <div class="w-10 h-10 rounded-full bg-surya-green flex items-center justify-center text-white font-bold text-sm shadow-sm" id="session-user-initials">EP</div>
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-bold text-gray-900 leading-tight truncate" id="session-user-name">Employee Profile</p>
+                    <p class="text-xs text-gray-500 truncate" id="session-user-dept">View Settings</p>
                 </div>
-                <div>
-                    <p class="text-sm font-bold text-gray-900 leading-tight" id="txt-profile-title">Employee Profile</p>
-                    <p class="text-xs text-gray-500" id="txt-profile-sub">View Settings</p>
-                </div>
+            </div>
+            <div class="mt-2 flex items-center justify-between gap-2">
+                <span id="session-user-role-badge" class="inline-flex rounded-full bg-gray-200 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-gray-700">EMPLOYEE</span>
+                <button id="logout-button" type="button" class="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600">Logout</button>
             </div>
         </div>
     </aside>
@@ -1317,6 +1331,56 @@
             });
         }
 
+        function getCurrentUser() {
+            try {
+                return JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+            } catch (error) {
+                console.warn('Unable to read current user from sessionStorage.', error);
+                return null;
+            }
+        }
+
+        function renderCurrentUserProfile() {
+            const currentUser = getCurrentUser();
+            const initialsEl = document.getElementById('session-user-initials');
+            const nameEl = document.getElementById('session-user-name');
+            const deptEl = document.getElementById('session-user-dept');
+            const roleBadgeEl = document.getElementById('session-user-role-badge');
+            const adminDashboardBtn = document.getElementById('nav-admin-dashboard');
+            const logoutBtn = document.getElementById('logout-button');
+
+            if (!currentUser) return;
+            if (initialsEl) initialsEl.textContent = (currentUser.name || 'Employee').split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase();
+            if (nameEl) nameEl.textContent = currentUser.name || 'Employee Demo';
+            if (deptEl) deptEl.textContent = `${currentUser.department || 'IT'} Department`;
+            if (roleBadgeEl) {
+                const isAdmin = currentUser.role === 'admin';
+                roleBadgeEl.textContent = isAdmin ? 'ADMIN' : 'EMPLOYEE';
+                roleBadgeEl.className = isAdmin
+                    ? 'inline-flex rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-amber-800'
+                    : 'inline-flex rounded-full bg-gray-200 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-gray-700';
+            }
+            if (adminDashboardBtn) {
+                const isAdmin = currentUser.role === 'admin';
+                adminDashboardBtn.classList.toggle('hidden', !isAdmin);
+            }
+            if (logoutBtn) {
+                logoutBtn.onclick = function () {
+                    sessionStorage.removeItem('currentUser');
+                    window.location.href = 'login.html';
+                };
+            }
+        }
+
+        function guardEmployeeAccess() {
+            const currentUser = getCurrentUser();
+            if (!currentUser) {
+                window.location.href = 'login.html';
+                return true;
+            }
+            return false;
+        }
+
         function setLanguage(lang) {
             if (currentLang === lang) return;
             currentLang = lang;
@@ -1335,25 +1399,35 @@
                 showToast('Bahasa Indonesia dipilih');
             }
 
-            // Update static elements
-            document.getElementById('txt-main-menu').innerText = uiTranslations[lang].mainMenu;
-            document.getElementById('txt-nav-home').innerText = uiTranslations[lang].navHome;
-            document.getElementById('txt-nav-request').innerText = uiTranslations[lang].navRequest;
-            document.getElementById('txt-nav-sop').innerText = uiTranslations[lang].navSOP;
-            document.getElementById('txt-nav-policies').innerText = uiTranslations[lang].navPolicies;
-            document.getElementById('txt-nav-corner').innerText = uiTranslations[lang].navCorner;
-            document.getElementById('txt-nav-links').innerText = uiTranslations[lang].navLinks;
-            document.getElementById('txt-profile-title').innerText = uiTranslations[lang].profileTitle;
-            document.getElementById('txt-profile-sub').innerText = uiTranslations[lang].profileSub;
-            document.getElementById('txt-new-ticket').innerText = uiTranslations[lang].newTicket;
-            document.getElementById('search-input').placeholder = uiTranslations[lang].searchPlaceholder;
-            document.getElementById('ticket-modal-label').innerText = lang === 'id' ? 'HR Helpdesk' : 'HR Helpdesk';
-            document.getElementById('ticket-modal-title').innerText = lang === 'id' ? 'Buat tiket baru' : 'Create a new ticket';
-            document.getElementById('ticket-category-label').innerText = lang === 'id' ? 'Kategori bantuan' : 'Support category';
-            document.getElementById('ticket-subject-label').innerText = lang === 'id' ? 'Subjek' : 'Subject';
-            document.getElementById('ticket-description-label').innerText = lang === 'id' ? 'Deskripsi' : 'Description';
-            document.getElementById('ticket-cancel').innerText = lang === 'id' ? 'Batal' : 'Cancel';
-            document.getElementById('ticket-submit').innerText = lang === 'id' ? 'Kirim tiket' : 'Submit ticket';
+            const staticElements = {
+                'txt-main-menu': uiTranslations[lang].mainMenu,
+                'txt-nav-home': uiTranslations[lang].navHome,
+                'txt-nav-request': uiTranslations[lang].navRequest,
+                'txt-nav-sop': uiTranslations[lang].navSOP,
+                'txt-nav-policies': uiTranslations[lang].navPolicies,
+                'txt-nav-corner': uiTranslations[lang].navCorner,
+                'txt-nav-links': uiTranslations[lang].navLinks,
+                'txt-profile-title': uiTranslations[lang].profileTitle,
+                'txt-profile-sub': uiTranslations[lang].profileSub,
+                'txt-new-ticket': uiTranslations[lang].newTicket,
+                'ticket-modal-label': lang === 'id' ? 'HR Helpdesk' : 'HR Helpdesk',
+                'ticket-modal-title': lang === 'id' ? 'Buat tiket baru' : 'Create a new ticket',
+                'ticket-category-label': lang === 'id' ? 'Kategori bantuan' : 'Support category',
+                'ticket-subject-label': lang === 'id' ? 'Subjek' : 'Subject',
+                'ticket-description-label': lang === 'id' ? 'Deskripsi' : 'Description',
+                'ticket-cancel': lang === 'id' ? 'Batal' : 'Cancel',
+                'ticket-submit': lang === 'id' ? 'Kirim tiket' : 'Submit ticket'
+            };
+
+            Object.entries(staticElements).forEach(([id, text]) => {
+                const element = document.getElementById(id);
+                if (element) element.innerText = text;
+            });
+
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) {
+                searchInput.placeholder = uiTranslations[lang].searchPlaceholder;
+            }
 
             // Instantly re-render the current view
             renderView(currentViewId, true);
@@ -1472,6 +1546,8 @@
 
         // Initialize on load
         window.onload = function() {
+            if (guardEmployeeAccess()) return;
+            renderCurrentUserProfile();
             initializeData();
             initializeSearchBehavior();
             setLanguage('id');

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suryanesia Employee Hub | Login</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        surya: {
+                            green: '#00783d',
+                            yellow: '#fad96c',
+                            orange: '#fdc26e',
+                            lightgreen: '#def7e4',
+                            lightyellow: '#fef7e2',
+                            lightblue: '#caecff'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif']
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #edf9f0 100%);
+        }
+
+        .input-shell {
+            transition: all 0.2s ease;
+        }
+
+        .input-shell:focus-within {
+            border-color: #00783d;
+            box-shadow: 0 0 0 4px rgba(0, 120, 61, 0.12);
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800">
+    <div class="flex min-h-screen items-center justify-center p-6">
+        <div class="w-full max-w-md rounded-[30px] border border-gray-200 bg-white p-7 shadow-[0_24px_80px_rgba(15,23,42,0.08)] md:p-8">
+            <div class="mb-7 flex items-center justify-center gap-3">
+                <img src="logo-green.png" alt="Suryanesia Logo" class="h-12 w-12 object-contain">
+                <div class="text-center">
+                    <div class="text-[11px] font-extrabold tracking-[0.38em] text-surya-green">SURYANESIA</div>
+                    <div class="mt-1 text-sm text-gray-600">Employee Hub</div>
+                </div>
+            </div>
+
+            <div class="text-center">
+                <h1 class="text-3xl font-extrabold tracking-tight text-gray-900">Welcome Back 👋</h1>
+                <p class="mt-2 text-sm text-gray-500">Sign in to continue to your workspace.</p>
+            </div>
+
+            <form id="login-form" class="mt-7 space-y-5">
+                <div>
+                    <label for="login-identifier" class="mb-2 block text-sm font-bold text-gray-700">Email / Employee ID</label>
+                    <div class="input-shell flex items-center rounded-2xl border border-gray-200 bg-gray-50 px-3">
+                        <i class="fas fa-user text-gray-400"></i>
+                        <input id="login-identifier" name="identifier" type="text" class="w-full border-0 bg-transparent px-3 py-3 text-sm text-gray-800 outline-none placeholder:text-gray-400" placeholder="employee@suryanesia.test" required>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="login-password" class="mb-2 block text-sm font-bold text-gray-700">Password</label>
+                    <div class="input-shell flex items-center rounded-2xl border border-gray-200 bg-gray-50 px-3">
+                        <i class="fas fa-lock text-gray-400"></i>
+                        <input id="login-password" name="password" type="password" class="w-full border-0 bg-transparent px-3 py-3 text-sm text-gray-800 outline-none placeholder:text-gray-400" placeholder="Enter your password" required>
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full rounded-2xl bg-surya-green px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-green-800">Login</button>
+                <p class="text-center text-sm text-gray-500"><a href="#" class="font-semibold text-surya-green hover:text-green-800">Forgot Password?</a></p>
+            </form>
+
+            <div class="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">
+                <p class="font-bold uppercase tracking-wide">Demo Accounts</p>
+                <ul class="mt-2 space-y-1">
+                    <li><span class="font-semibold">Employee:</span> employee@suryanesia.test / employee123</li>
+                    <li><span class="font-semibold">Admin:</span> admin@suryanesia.test / admin123</li>
+                </ul>
+            </div>
+
+            <p class="mt-5 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-400">// DEMO AUTHENTICATION ONLY<br>// NOT FOR PRODUCTION USE</p>
+        </div>
+    </div>
+
+    <script>
+        // DEMO AUTHENTICATION ONLY
+        // NOT FOR PRODUCTION USE
+        const users = [
+            {
+                id: 'EMP001',
+                name: 'Employee Demo',
+                email: 'employee@suryanesia.test',
+                password: 'employee123',
+                role: 'employee',
+                department: 'IT'
+            },
+            {
+                id: 'ADM001',
+                name: 'Admin Demo',
+                email: 'admin@suryanesia.test',
+                password: 'admin123',
+                role: 'admin',
+                department: 'IT Support'
+            }
+        ];
+
+        const demoUserKey = 'suryanesia_demo_users';
+        function loadDemoUsers() {
+            try {
+                const storedUsers = JSON.parse(localStorage.getItem(demoUserKey) || 'null');
+                if (Array.isArray(storedUsers) && storedUsers.length > 0) {
+                    return storedUsers;
+                }
+            } catch (error) {
+                console.warn('Unable to load demo users from localStorage.', error);
+            }
+
+            localStorage.setItem(demoUserKey, JSON.stringify(users));
+            return users;
+        }
+
+        function showLoginError(message) {
+            const form = document.getElementById('login-form');
+            const errorBox = document.getElementById('login-error');
+            if (!errorBox) {
+                const box = document.createElement('div');
+                box.id = 'login-error';
+                box.className = 'rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700';
+                form.parentNode.insertBefore(box, form.nextSibling);
+                box.textContent = message;
+                return;
+            }
+            errorBox.textContent = message;
+        }
+
+        document.getElementById('login-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+            const identifier = document.getElementById('login-identifier').value.trim();
+            const password = document.getElementById('login-password').value.trim();
+            const matchingUser = loadDemoUsers().find((user) => {
+                const matchesIdentifier = user.email.toLowerCase() === identifier.toLowerCase() || user.id.toLowerCase() === identifier.toLowerCase();
+                return matchesIdentifier && user.password === password;
+            });
+
+            if (!matchingUser) {
+                showLoginError('Invalid email/employee ID or password. Please try one of the demo accounts above.');
+                return;
+            }
+
+            const currentUser = {
+                id: matchingUser.id,
+                name: matchingUser.name,
+                email: matchingUser.email,
+                role: matchingUser.role,
+                department: matchingUser.department
+            };
+
+            sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
+            window.location.href = 'index.html';
+        });
+    </script>
+</body>
+</html>

@@ -373,8 +373,16 @@
                         <strong class="stat-value" id="progress-tickets">0</strong>
                     </article>
                     <article class="card">
-                        <span class="stat-label">Resolved this month</span>
+                        <span class="stat-label">Pending</span>
+                        <strong class="stat-value" id="pending-tickets">0</strong>
+                    </article>
+                    <article class="card">
+                        <span class="stat-label">Resolved</span>
                         <strong class="stat-value" id="resolved-tickets">0</strong>
+                    </article>
+                    <article class="card">
+                        <span class="stat-label">Closed</span>
+                        <strong class="stat-value" id="closed-tickets">0</strong>
                     </article>
                 </section>
 
@@ -383,6 +391,8 @@
                         <h2 id="tickets-title">Recent tickets</h2>
                         <div class="filters">
                             <input id="ticket-search" type="search" placeholder="Search tickets" aria-label="Search tickets">
+                            <select id="category-filter" aria-label="Filter by category"><option value="all">All categories</option><option>IT Support</option><option>Hardware</option><option>Software</option><option>Network</option><option>Account & Access</option><option>HR</option><option>Other</option></select>
+                            <select id="priority-filter" aria-label="Filter by priority"><option value="all">All priorities</option><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select>
                             <select id="status-filter" aria-label="Filter by status">
                                 <option value="all">All statuses</option>
                                 <option value="open">Open</option>
@@ -398,35 +408,10 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Ticket</th>
-                                    <th>Subject</th>
-                                    <th>Requester</th>
-                                    <th>Status</th>
-                                    <th>Updated</th>
+                                    <th>Ticket ID</th><th>Employee</th><th>Department</th><th>Category</th><th>Priority</th><th>Subject</th><th>Status</th><th>PIC</th><th>Created Date</th><th>Manage</th>
                                 </tr>
                             </thead>
                             <tbody id="ticket-list">
-                                <tr data-status="open" data-ticket-id="HD-0128">
-                                    <td>#HD-0128</td>
-                                    <td>Annual leave balance</td>
-                                    <td>Andi Pratama</td>
-                                    <td><span class="status open">Open</span></td>
-                                    <td>10 minutes ago</td>
-                                </tr>
-                                <tr data-status="progress" data-ticket-id="HD-0127">
-                                    <td>#HD-0127</td>
-                                    <td>Payroll document request</td>
-                                    <td>Siti Rahma</td>
-                                    <td><span class="status progress">In progress</span></td>
-                                    <td>35 minutes ago</td>
-                                </tr>
-                                <tr data-status="resolved" data-ticket-id="HD-0126">
-                                    <td>#HD-0126</td>
-                                    <td>Update emergency contact</td>
-                                    <td>Budi Santoso</td>
-                                    <td><span class="status resolved">Resolved</span></td>
-                                    <td>1 hour ago</td>
-                                </tr>
                             </tbody>
                         </table>
                         <p class="empty-state" id="empty-state">No tickets match the selected filters.</p>
@@ -458,7 +443,7 @@
         function guardAdminAccess() {
             const currentUser = getCurrentUser();
             if (!currentUser) {
-                window.location.href = 'login.html';
+                window.location.href = 'admin-login.html';
                 return true;
             }
             if (currentUser.role !== 'admin') {
@@ -481,9 +466,11 @@
         const sidebar = document.getElementById('sidebar');
         const searchInput = document.getElementById('ticket-search');
         const statusFilter = document.getElementById('status-filter');
-        let rows = Array.from(document.querySelectorAll('#ticket-list tr'));
+        const categoryFilter = document.getElementById('category-filter');
+        const priorityFilter = document.getElementById('priority-filter');
+        let rows = [];
         const emptyState = document.getElementById('empty-state');
-        const ticketStorageKey = 'suryanesiaHelpdeskTickets';
+        const ticketStorageKey = 'suryanesia_tickets';
         const ticketList = document.getElementById('ticket-list');
 
         function getStoredTickets() {
@@ -510,6 +497,26 @@
             return 'open';
         }
 
+        function normalizePriority(priority) {
+            return String(priority || 'Medium');
+        }
+
+        function updateTicket(ticketId, changes) {
+            const tickets = getStoredTickets();
+            const index = tickets.findIndex((ticket) => ticket.id === ticketId);
+            if (index < 0) return;
+            const updatedAt = new Date().toISOString();
+            const current = tickets[index];
+            tickets[index] = { ...current, ...changes, updatedAt };
+            if (changes.status && changes.status !== current.status) {
+                tickets[index].timeline = [...(current.timeline || []), { status: changes.status, at: updatedAt }];
+            }
+            localStorage.setItem(ticketStorageKey, JSON.stringify(tickets));
+            renderStoredTickets();
+            updateSummary();
+            filterTickets();
+        }
+
         function labelForStatus(status) {
             switch (normalizeStatus(status)) {
                 case 'progress': return 'In progress';
@@ -528,16 +535,10 @@
                 const normalizedStatus = normalizeStatus(ticket.status);
                 row.dataset.status = normalizedStatus;
                 row.dataset.ticketId = ticket.id;
-                const values = [
-                    `#${ticket.id}`,
-                    ticket.subject,
-                    ticket.employeeName || ticket.requester || 'Employee',
-                    labelForStatus(ticket.status),
-                    formatUpdatedAt(ticket.updatedAt || ticket.createdDate)
-                ];
+                const values = [`#${ticket.id}`, ticket.name || ticket.employeeName || 'Employee', ticket.department || '-', ticket.category || 'Other', ticket.priority || 'Medium', ticket.subject, labelForStatus(ticket.status), ticket.pic || 'Unassigned', formatUpdatedAt(ticket.createdAt || ticket.createdDate)];
                 values.forEach((value, index) => {
                     const cell = document.createElement('td');
-                    if (index === 3) {
+                    if (index === 6) {
                         const status = document.createElement('span');
                         status.className = `status ${normalizedStatus}`;
                         status.textContent = value;
@@ -547,6 +548,9 @@
                     }
                     row.appendChild(cell);
                 });
+                const manageCell = document.createElement('td');
+                manageCell.innerHTML = `<select aria-label="Update status" class="status-editor" data-ticket-id="${ticket.id}"><option ${ticket.status === 'Open' ? 'selected' : ''}>Open</option><option ${ticket.status === 'In Progress' ? 'selected' : ''}>In Progress</option><option ${ticket.status === 'Pending' ? 'selected' : ''}>Pending</option><option ${ticket.status === 'Resolved' ? 'selected' : ''}>Resolved</option><option ${ticket.status === 'Closed' ? 'selected' : ''}>Closed</option></select><input class="pic-editor" data-ticket-id="${ticket.id}" value="${ticket.pic || ''}" placeholder="PIC" aria-label="Assign PIC" style="width:110px;margin-left:6px"><input class="resolution-editor" data-ticket-id="${ticket.id}" value="${ticket.resolution || ''}" placeholder="Resolution notes" aria-label="Resolution notes" style="width:150px;margin-left:6px"><button type="button" class="save-ticket" data-ticket-id="${ticket.id}" style="margin-left:6px;color:var(--green);font-weight:700">Save</button>`;
+                row.appendChild(manageCell);
                 ticketList.prepend(row);
             });
             rows = Array.from(ticketList.querySelectorAll('tr'));
@@ -563,12 +567,14 @@
             document.getElementById('total-tickets').textContent = counts.total;
             document.getElementById('open-tickets').textContent = counts.open;
             document.getElementById('progress-tickets').textContent = counts.progress;
+            document.getElementById('pending-tickets').textContent = counts.pending;
             document.getElementById('resolved-tickets').textContent = counts.resolved;
+            document.getElementById('closed-tickets').textContent = counts.closed;
         }
 
         document.getElementById('logout-button').addEventListener('click', () => {
             sessionStorage.removeItem('currentUser');
-            window.location.href = 'login.html';
+            window.location.href = 'admin-login.html';
         });
 
         menuButton.addEventListener('click', () => {
@@ -578,12 +584,16 @@
         function filterTickets() {
             const query = searchInput.value.trim().toLowerCase();
             const selectedStatus = statusFilter.value;
+            const selectedCategory = categoryFilter.value;
+            const selectedPriority = priorityFilter.value;
             let visibleRows = 0;
 
             rows.forEach((row) => {
                 const matchesQuery = row.textContent.toLowerCase().includes(query);
                 const matchesStatus = selectedStatus === 'all' || row.dataset.status === selectedStatus;
-                const isVisible = matchesQuery && matchesStatus;
+                const matchesCategory = selectedCategory === 'all' || row.children[3]?.textContent === selectedCategory;
+                const matchesPriority = selectedPriority === 'all' || row.children[4]?.textContent === selectedPriority;
+                const isVisible = matchesQuery && matchesStatus && matchesCategory && matchesPriority;
                 row.hidden = !isVisible;
                 visibleRows += isVisible ? 1 : 0;
             });
@@ -593,11 +603,61 @@
 
         searchInput.addEventListener('input', filterTickets);
         statusFilter.addEventListener('change', filterTickets);
+        categoryFilter.addEventListener('change', filterTickets);
+        priorityFilter.addEventListener('change', filterTickets);
+        ticketList.addEventListener('click', (event) => {
+            const button = event.target.closest('.save-ticket');
+            if (!button) return;
+            const id = button.dataset.ticketId;
+            const status = ticketList.querySelector(`.status-editor[data-ticket-id="${id}"]`).value;
+            const pic = ticketList.querySelector(`.pic-editor[data-ticket-id="${id}"]`).value.trim() || null;
+            const resolution = ticketList.querySelector(`.resolution-editor[data-ticket-id="${id}"]`).value.trim() || null;
+            updateTicket(id, { status, pic, resolution });
+        });
 
-        if (guardAdminAccess()) return;
-        renderAdminUserProfile();
-        renderStoredTickets();
-        updateSummary();
+        if (!guardAdminAccess()) {
+            renderAdminUserProfile();
+            renderStoredTickets();
+            updateSummary();
+        }
+    </script>
+    <script>
+        // Defensive dashboard bootstrap for the prototype's localStorage-backed ticket view.
+        (function () {
+            const user = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+            if (!user || user.role !== 'admin') return;
+            const list = document.getElementById('ticket-list');
+            if (!list) return;
+            const tickets = JSON.parse(localStorage.getItem('suryanesia_tickets') || '[]');
+            const statusKey = (status) => String(status || 'Open').toLowerCase().replace('in progress', 'progress');
+            const render = () => {
+                list.innerHTML = tickets.map((ticket) => {
+                    const key = statusKey(ticket.status);
+                    return `<tr data-status="${key}"><td>#${ticket.id}</td><td>${ticket.name || ticket.employeeName || 'Employee'}</td><td>${ticket.department || '-'}</td><td>${ticket.category || 'Other'}</td><td>${ticket.priority || 'Medium'}</td><td>${ticket.subject || '-'}</td><td><span class="status ${key}">${ticket.status || 'Open'}</span></td><td>${ticket.pic || 'Unassigned'}</td><td>${ticket.createdAt || ticket.createdDate || '-'}</td><td><select class="fallback-status" data-id="${ticket.id}"><option ${ticket.status === 'Open' ? 'selected' : ''}>Open</option><option ${ticket.status === 'In Progress' ? 'selected' : ''}>In Progress</option><option ${ticket.status === 'Pending' ? 'selected' : ''}>Pending</option><option ${ticket.status === 'Resolved' ? 'selected' : ''}>Resolved</option><option ${ticket.status === 'Closed' ? 'selected' : ''}>Closed</option></select><input class="fallback-pic" data-id="${ticket.id}" placeholder="PIC" value="${ticket.pic || ''}"><input class="fallback-resolution" data-id="${ticket.id}" placeholder="Resolution notes" value="${ticket.resolution || ''}"><button type="button" class="fallback-save" data-id="${ticket.id}">Save</button></td></tr>`;
+                }).join('');
+                ['total-tickets', 'open-tickets', 'progress-tickets', 'pending-tickets', 'resolved-tickets', 'closed-tickets'].forEach((id) => {
+                    const key = id.replace('-tickets', '').replace('progress', 'progress');
+                    const count = key === 'total' ? tickets.length : tickets.filter((ticket) => statusKey(ticket.status) === key).length;
+                    const element = document.getElementById(id);
+                    if (element) element.textContent = count;
+                });
+            };
+            list.addEventListener('click', (event) => {
+                const button = event.target.closest('.fallback-save');
+                if (!button) return;
+                const ticket = tickets.find((item) => item.id === button.dataset.id);
+                if (!ticket) return;
+                const previousStatus = ticket.status;
+                ticket.status = list.querySelector(`.fallback-status[data-id="${ticket.id}"]`).value;
+                ticket.pic = list.querySelector(`.fallback-pic[data-id="${ticket.id}"]`).value.trim() || null;
+                ticket.resolution = list.querySelector(`.fallback-resolution[data-id="${ticket.id}"]`).value.trim() || null;
+                ticket.updatedAt = new Date().toISOString();
+                if (ticket.status !== previousStatus) ticket.timeline = [...(ticket.timeline || []), { status: ticket.status, at: ticket.updatedAt }];
+                localStorage.setItem('suryanesia_tickets', JSON.stringify(tickets));
+                render();
+            });
+            render();
+        }());
     </script>
 </body>
 </html>

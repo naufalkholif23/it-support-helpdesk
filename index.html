@@ -171,14 +171,11 @@
                 <button onclick="openAiAssistant()" id="nav-ai-assistant" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
                     <i class="fas fa-robot w-5 text-center text-lg"></i><span>AI Assistant</span>
                 </button>
-                <button onclick="navigate('my-tickets')" id="nav-my-tickets" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-ticket-alt w-5 text-center text-lg"></i><span>My Tickets</span>
+                <button onclick="openTicketForm()" id="nav-create-ticket" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
+                    <i class="fas fa-ticket-alt w-5 text-center text-lg"></i><span>Create Ticket</span>
                 </button>
-                <button onclick="navigate('request')" id="nav-request" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-concierge-bell w-5 text-center text-lg"></i><span id="txt-nav-request">Request Center</span>
-                </button>
-                <button onclick="navigate('assets')" id="nav-assets" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-laptop w-5 text-center text-lg"></i><span>My Assets</span>
+                <button onclick="openCheckTicket()" id="nav-check-ticket" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
+                    <i class="fas fa-search w-5 text-center text-lg"></i><span>Check Ticket</span>
                 </button>
                 <button onclick="navigate('knowledge-base')" id="nav-knowledge-base" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
                     <i class="fas fa-book-open w-5 text-center text-lg"></i><span>Knowledge Base</span>
@@ -195,26 +192,19 @@
                 <button onclick="navigate('profile')" id="nav-profile" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
                     <i class="fas fa-user-circle w-5 text-center text-lg"></i><span>Profile</span>
                 </button>
-                <button type="button" id="nav-admin-dashboard" onclick="window.location.href='admin.html'" class="hidden nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-chart-line w-5 text-center text-lg"></i><span>Admin Dashboard</span>
+                <button onclick="navigate('links')" id="nav-links" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
+                    <i class="fas fa-link w-5 text-center text-lg"></i><span>Quick Links</span>
                 </button>
+                <button onclick="navigate('corner')" id="nav-corner" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
+                    <i class="fas fa-user-circle w-5 text-center text-lg"></i><span>Employee Corner</span>
+                </button>
+                <div class="my-3 border-t border-gray-100" role="separator" aria-label="Admin access"></div>
+                <a href="admin-login.html" id="nav-admin-access" class="nav-btn flex w-full items-center space-x-3 rounded-xl px-3 py-3 text-left font-semibold text-gray-600 transition-all hover:bg-surya-lightgreen hover:text-surya-green">
+                    <i class="fas fa-lock w-5 text-center text-lg"></i><span>🔐 Admin Access</span>
+                </a>
             </nav>
         </div>
 
-        <!-- User Profile Section -->
-        <div class="mt-auto p-4 border-t border-gray-100 bg-gray-50/50">
-            <div class="flex items-center space-x-3 p-2 rounded-xl hover:bg-gray-100 cursor-pointer transition-colors">
-                <div class="w-10 h-10 rounded-full bg-surya-green flex items-center justify-center text-white font-bold text-sm shadow-sm" id="session-user-initials">EP</div>
-                <div class="min-w-0 flex-1">
-                    <p class="text-sm font-bold text-gray-900 leading-tight truncate" id="session-user-name">Employee Profile</p>
-                    <p class="text-xs text-gray-500 truncate" id="session-user-dept">View Settings</p>
-                </div>
-            </div>
-            <div class="mt-2 flex items-center justify-between gap-2">
-                <span id="session-user-role-badge" class="inline-flex rounded-full bg-gray-200 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-gray-700">EMPLOYEE</span>
-                <button id="logout-button" type="button" class="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600">Logout</button>
-            </div>
-        </div>
     </aside>
     <button id="sidebar-backdrop" type="button" onclick="toggleSidebar(false)" class="fixed inset-0 z-40 hidden bg-gray-900/40 md:hidden" aria-label="Tutup menu"></button>
 
@@ -267,17 +257,18 @@
         <div class="flex-1 overflow-y-auto relative" id="content-area">
             <!-- Views injected here via JS -->
         </div>
+
     </main>
 
     <!-- Global Toast Container -->
     <div id="toast-container" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center pointer-events-none gap-2"></div>
 
-    <!-- New HR Ticket Modal -->
+    <!-- Public ticket form: prototype storage uses localStorage; production should use a backend/database. -->
     <div id="ticket-modal" class="fixed inset-0 z-[90] hidden items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="ticket-modal-title">
-        <div class="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
+        <div class="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl">
             <div class="flex items-center justify-between border-b border-gray-100 px-6 py-5">
                 <div>
-                    <p class="text-xs font-bold uppercase tracking-wider text-surya-green" id="ticket-modal-label">HR Helpdesk</p>
+                    <p class="text-xs font-bold uppercase tracking-wider text-surya-green" id="ticket-modal-label">Suryanesia Helpdesk</p>
                     <h2 class="text-xl font-extrabold text-gray-900" id="ticket-modal-title">Buat tiket baru</h2>
                 </div>
                 <button type="button" onclick="closeTicketForm()" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Tutup">
@@ -286,12 +277,27 @@
             </div>
             <form id="ticket-form" class="space-y-4 p-6">
                 <label class="block">
-                    <span class="mb-1.5 block text-sm font-bold text-gray-700" id="ticket-category-label">Kategori bantuan</span>
+                    <span class="mb-1.5 block text-sm font-bold text-gray-700">Nama</span>
+                    <input id="ticket-name" required maxlength="100" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen" placeholder="Nama lengkap">
+                </label>
+                <label class="block">
+                    <span class="mb-1.5 block text-sm font-bold text-gray-700">Email / Kontak</span>
+                    <input id="ticket-email" required type="email" maxlength="120" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen" placeholder="nama@perusahaan.com">
+                </label>
+                <label class="block">
+                    <span class="mb-1.5 block text-sm font-bold text-gray-700">Department</span>
+                    <input id="ticket-department" required maxlength="80" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen" placeholder="Contoh: IT">
+                </label>
+                <label class="block">
+                    <span class="mb-1.5 block text-sm font-bold text-gray-700">Category</span>
                     <select id="ticket-category" required class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen">
-                        <option>Administrasi HR</option>
-                        <option>Cuti & Kehadiran</option>
-                        <option>Payroll & Benefit</option>
-                        <option>Pengembangan Karyawan</option>
+                        <option>IT Support</option><option>Hardware</option><option>Software</option><option>Network</option><option>Account & Access</option><option>HR</option><option>Other</option>
+                    </select>
+                </label>
+                <label class="block">
+                    <span class="mb-1.5 block text-sm font-bold text-gray-700">Priority</span>
+                    <select id="ticket-priority" required class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen">
+                        <option>Low</option><option selected>Medium</option><option>High</option><option>Critical</option>
                     </select>
                 </label>
                 <label class="block">
@@ -302,11 +308,28 @@
                     <span class="mb-1.5 block text-sm font-bold text-gray-700" id="ticket-description-label">Deskripsi</span>
                     <textarea id="ticket-description" required rows="4" class="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen" placeholder="Jelaskan kebutuhan Anda secara singkat"></textarea>
                 </label>
+                <label class="block">
+                    <span class="mb-1.5 block text-sm font-bold text-gray-700">Attachment (optional)</span>
+                    <input id="ticket-attachment" type="file" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
+                </label>
                 <div class="flex justify-end gap-3 pt-2">
                     <button type="button" onclick="closeTicketForm()" class="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-50" id="ticket-cancel">Batal</button>
                     <button type="submit" class="rounded-xl bg-surya-green px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-green-800" id="ticket-submit">Kirim tiket</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div id="check-ticket-modal" class="fixed inset-0 z-[85] hidden items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
+        <div class="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
+            <div class="flex items-center justify-between border-b border-gray-100 px-6 py-5">
+                <div><p class="text-xs font-bold uppercase tracking-wider text-surya-green">Public Helpdesk</p><h2 class="text-xl font-extrabold text-gray-900">Check Ticket Status</h2></div>
+                <button type="button" onclick="closeCheckTicket()" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100" aria-label="Close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="space-y-4 p-6">
+                <div class="flex gap-2"><input id="check-ticket-id" class="min-w-0 flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm uppercase outline-none focus:border-surya-green" placeholder="IT-20260924-0001"><button type="button" onclick="checkTicketStatus()" class="rounded-xl bg-surya-green px-4 py-3 text-sm font-bold text-white">Cek Status</button></div>
+                <div id="ticket-result" class="hidden"></div>
+            </div>
         </div>
     </div>
 
@@ -806,9 +829,15 @@
         function generateTicketId() {
             const now = new Date();
             const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
-            const count = Number(localStorage.getItem('suryanesia_ticket_counter') || '0') + 1;
+            const tickets = loadData(STORAGE_KEYS.tickets, []);
+            let count = Number(localStorage.getItem('suryanesia_ticket_counter') || '0') + 1;
+            let id = `IT-${stamp}-${String(count).padStart(4, '0')}`;
+            while (tickets.some((ticket) => ticket.id === id)) {
+                count += 1;
+                id = `IT-${stamp}-${String(count).padStart(4, '0')}`;
+            }
             localStorage.setItem('suryanesia_ticket_counter', String(count));
-            return `IT-${stamp}-${String(count).padStart(4, '0')}`;
+            return id;
         }
 
         function generateRequestId() {
@@ -821,23 +850,54 @@
 
         function createTicket(ticketData = {}) {
             const tickets = loadData(STORAGE_KEYS.tickets, []);
+            const now = ticketData.createdAt || new Date().toISOString();
             const generatedTicket = {
                 id: ticketData.id || generateTicketId(),
-                employeeName: ticketData.employeeName || 'Employee',
-                employeeId: ticketData.employeeId || 'EMP-001',
+                name: ticketData.name || ticketData.employeeName || 'Employee',
+                employeeName: ticketData.name || ticketData.employeeName || 'Employee',
+                email: ticketData.email || '',
+                employeeId: ticketData.employeeId || '',
                 department: ticketData.department || 'IT',
                 category: ticketData.category || 'Other',
                 priority: ticketData.priority || 'Medium',
                 subject: ticketData.subject || 'Support Request',
                 description: ticketData.description || '',
-                createdDate: ticketData.createdDate || new Date().toISOString().slice(0, 10),
+                attachment: ticketData.attachment || null,
+                createdAt: now,
+                createdDate: ticketData.createdDate || now.slice(0, 10),
+                updatedAt: ticketData.updatedAt || now,
                 status: ticketData.status || 'Open',
-                pic: ticketData.pic || 'IT Support',
-                resolution: ticketData.resolution || ''
+                pic: ticketData.pic || null,
+                resolution: ticketData.resolution || null,
+                timeline: ticketData.timeline || [{ status: 'Open', at: now }]
             };
             tickets.unshift(generatedTicket);
             saveData(STORAGE_KEYS.tickets, tickets);
             return generatedTicket;
+        }
+
+        function getAllTickets() {
+            return loadData(STORAGE_KEYS.tickets, []);
+        }
+
+        function getTicket(ticketId) {
+            const normalizedId = String(ticketId || '').trim().toUpperCase();
+            return getAllTickets().find((ticket) => String(ticket.id).toUpperCase() === normalizedId) || null;
+        }
+
+        function updateTicket(ticketId, changes = {}) {
+            const tickets = getAllTickets();
+            const index = tickets.findIndex((ticket) => ticket.id === ticketId);
+            if (index < 0) return null;
+            const current = tickets[index];
+            const updatedAt = new Date().toISOString();
+            const next = { ...current, ...changes, updatedAt };
+            if (changes.status && changes.status !== current.status) {
+                next.timeline = [...(current.timeline || []), { status: changes.status, at: updatedAt }];
+            }
+            tickets[index] = next;
+            saveData(STORAGE_KEYS.tickets, tickets);
+            return next;
         }
 
         function createRequest(requestData = {}) {
@@ -877,18 +937,25 @@
         function setEmployeeHubHome() {
             views.en.home = `
                 <div class="fade-in max-w-7xl mx-auto p-4 md:p-8 pb-12 employee-hub-grid">
-                    <div class="mb-8 rounded-[28px] bg-surya-green p-8 md:p-10 text-white shadow-lg relative overflow-hidden flex flex-col gap-6">
-                        <div class="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
-                        <div class="absolute bottom-0 left-0 w-40 h-40 bg-surya-yellow opacity-10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/4"></div>
-                        <div class="z-10">
-                            <span class="inline-block py-1 px-3 rounded-full bg-white/20 text-white text-xs font-bold tracking-wider mb-4 border border-white/30">SURYA NESIA EMPLOYEE HUB</span>
-                            <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight mb-3">Welcome to Suryanesia Employee Hub 👋</h1>
-                            <p class="text-surya-lightgreen text-lg max-w-2xl opacity-90">Everything you need for work, support, learning, and requests in one modern employee portal.</p>
-                        </div>
-                        <div class="z-10 flex flex-wrap gap-3">
-                            <button onclick="openAiAssistant()" class="rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-surya-green shadow-sm hover:bg-surya-lightgreen">Ask AI</button>
-                            <button onclick="openTicketForm()" class="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">Create Ticket</button>
-                            <button onclick="navigate('my-tickets')" class="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">My Tickets</button>
+                    <div class="relative mb-8 overflow-hidden rounded-[32px] bg-gradient-to-br from-[#006b39] via-surya-green to-[#005d30] p-7 text-white shadow-xl sm:p-9 md:p-12">
+                        <div class="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-white/5 blur-3xl"></div>
+                        <div class="absolute -bottom-28 left-1/3 h-64 w-64 rounded-full bg-surya-yellow/10 blur-3xl"></div>
+                        <div class="relative z-10 flex flex-col items-start justify-between gap-9 md:flex-row md:items-center">
+                            <div class="max-w-2xl md:w-[58%]">
+                                <span class="mb-5 inline-flex rounded-full border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-white">Suryanesia Employee Hub</span>
+                                <h1 class="max-w-xl text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl md:text-5xl">Everything you need,<br>in one place.</h1>
+                                <p class="mt-5 max-w-2xl text-base leading-relaxed text-white/80 sm:text-lg md:text-xl">A single portal to access SOPs, company policies, employee information, and request forms.</p>
+                                <div class="mt-7 flex flex-wrap gap-3">
+                                    <button onclick="openAiAssistant()" class="rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-surya-green shadow-sm hover:bg-surya-lightgreen">Ask AI</button>
+                                    <button onclick="openTicketForm()" class="rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-surya-green hover:bg-surya-lightgreen">🎫 Create Ticket</button>
+                                    <button onclick="openCheckTicket()" class="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">🔎 Check Ticket</button>
+                                </div>
+                            </div>
+                            <div class="relative z-10 flex w-full justify-center md:w-[42%] md:justify-end">
+                                <div class="flex h-[clamp(10rem,22vw,14rem)] w-[clamp(10rem,22vw,14rem)] shrink-0 items-center justify-center rounded-full bg-white p-[clamp(0.75rem,2vw,1.25rem)] shadow-2xl">
+                                    <img src="favicon.ico" alt="Suryanesia icon" class="h-full w-full object-contain">
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -962,18 +1029,25 @@
 
             views.id.home = `
                 <div class="fade-in max-w-7xl mx-auto p-4 md:p-8 pb-12 employee-hub-grid">
-                    <div class="mb-8 rounded-[28px] bg-surya-green p-8 md:p-10 text-white shadow-lg relative overflow-hidden flex flex-col gap-6">
-                        <div class="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
-                        <div class="absolute bottom-0 left-0 w-40 h-40 bg-surya-yellow opacity-10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/4"></div>
-                        <div class="z-10">
-                            <span class="inline-block py-1 px-3 rounded-full bg-white/20 text-white text-xs font-bold tracking-wider mb-4 border border-white/30">SURYA NESIA EMPLOYEE HUB</span>
-                            <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight mb-3">Selamat datang di Suryanesia Employee Hub 👋</h1>
-                            <p class="text-surya-lightgreen text-lg max-w-2xl opacity-90">Semua kebutuhan kerja, dukungan, pembelajaran, dan permintaan berada dalam satu portal karyawan modern.</p>
-                        </div>
-                        <div class="z-10 flex flex-wrap gap-3">
-                            <button onclick="openAiAssistant()" class="rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-surya-green shadow-sm hover:bg-surya-lightgreen">Tanya AI</button>
-                            <button onclick="openTicketForm()" class="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">Buat Tiket</button>
-                            <button onclick="navigate('my-tickets')" class="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">Ticket Saya</button>
+                    <div class="relative mb-8 overflow-hidden rounded-[32px] bg-gradient-to-br from-[#006b39] via-surya-green to-[#005d30] p-7 text-white shadow-xl sm:p-9 md:p-12">
+                        <div class="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-white/5 blur-3xl"></div>
+                        <div class="absolute -bottom-28 left-1/3 h-64 w-64 rounded-full bg-surya-yellow/10 blur-3xl"></div>
+                        <div class="relative z-10 flex flex-col items-start justify-between gap-9 md:flex-row md:items-center">
+                            <div class="max-w-2xl md:w-[58%]">
+                                <span class="mb-5 inline-flex rounded-full border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-white">Suryanesia Employee Hub</span>
+                                <h1 class="max-w-xl text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl md:text-5xl">Everything you need,<br>in one place.</h1>
+                                <p class="mt-5 max-w-2xl text-base leading-relaxed text-white/80 sm:text-lg md:text-xl">A single portal to access SOPs, company policies, employee information, and request forms.</p>
+                                <div class="mt-7 flex flex-wrap gap-3">
+                                    <button onclick="openAiAssistant()" class="rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-surya-green shadow-sm hover:bg-surya-lightgreen">Tanya AI</button>
+                                    <button onclick="openTicketForm()" class="rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-surya-green hover:bg-surya-lightgreen">🎫 Buat Ticket</button>
+                                    <button onclick="openCheckTicket()" class="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">🔎 Cek Ticket</button>
+                                </div>
+                            </div>
+                            <div class="relative z-10 flex w-full justify-center md:w-[42%] md:justify-end">
+                                <div class="flex h-[clamp(10rem,22vw,14rem)] w-[clamp(10rem,22vw,14rem)] shrink-0 items-center justify-center rounded-full bg-white p-[clamp(0.75rem,2vw,1.25rem)] shadow-2xl">
+                                    <img src="favicon.ico" alt="Suryanesia icon" class="h-full w-full object-contain">
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -1044,27 +1118,8 @@
 
         views.en['my-tickets'] = `
             <div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12">
-                <div class="mb-8 flex items-center justify-between gap-3 flex-wrap">
-                    <div>
-                        <span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">My Requests</span>
-                        <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">My Tickets</h2>
-                    </div>
-                    <button onclick="openTicketForm()" class="bg-surya-green text-white px-4 py-2 rounded-xl font-bold">New Ticket</button>
-                </div>
-                <div class="bg-white rounded-3xl border border-gray-200 shadow-sm p-4 md:p-6">
-                    <div class="mb-4 flex flex-col sm:flex-row gap-3">
-                        <input type="search" placeholder="Search ticket" class="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen" id="my-ticket-search" />
-                        <select class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm" id="my-ticket-status">
-                            <option value="all">All Status</option>
-                            <option value="Open">Open</option>
-                            <option value="In Progress">In Progress</option>
-                            <option value="Pending">Pending</option>
-                            <option value="Resolved">Resolved</option>
-                            <option value="Closed">Closed</option>
-                        </select>
-                    </div>
-                    <div class="space-y-3" id="my-ticket-list"></div>
-                </div>
+                <div class="mb-8"><span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Public Helpdesk</span><h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Check Ticket Status</h2><p class="mt-2 text-gray-500">For privacy, ticket details are shown only when you provide the exact Ticket ID.</p></div>
+                <div class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm"><div class="flex flex-col gap-3 sm:flex-row"><input id="my-ticket-search" placeholder="IT-YYYYMMDD-XXXX" class="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm uppercase"><button onclick="openCheckTicket(document.getElementById('my-ticket-search').value)" class="rounded-xl bg-surya-green px-5 py-3 font-bold text-white">🔎 Cek Status</button></div></div>
             </div>
         `;
 
@@ -1319,7 +1374,7 @@
         }
 
         function syncNavigationButtons(viewId) {
-            const navIds = ['nav-home', 'nav-request', 'nav-sop', 'nav-policies', 'nav-corner', 'nav-links'];
+            const navIds = ['nav-home', 'nav-create-ticket', 'nav-check-ticket', 'nav-ai-assistant', 'nav-knowledge-base', 'nav-sop', 'nav-policies', 'nav-announcements', 'nav-links', 'nav-corner'];
             navIds.forEach((id) => {
                 const btn = document.getElementById(id);
                 if (btn) {
@@ -1345,39 +1400,13 @@
             const initialsEl = document.getElementById('session-user-initials');
             const nameEl = document.getElementById('session-user-name');
             const deptEl = document.getElementById('session-user-dept');
-            const roleBadgeEl = document.getElementById('session-user-role-badge');
-            const adminDashboardBtn = document.getElementById('nav-admin-dashboard');
-            const logoutBtn = document.getElementById('logout-button');
 
-            if (!currentUser) return;
-            if (initialsEl) initialsEl.textContent = (currentUser.name || 'Employee').split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase();
-            if (nameEl) nameEl.textContent = currentUser.name || 'Employee Demo';
-            if (deptEl) deptEl.textContent = `${currentUser.department || 'IT'} Department`;
-            if (roleBadgeEl) {
-                const isAdmin = currentUser.role === 'admin';
-                roleBadgeEl.textContent = isAdmin ? 'ADMIN' : 'EMPLOYEE';
-                roleBadgeEl.className = isAdmin
-                    ? 'inline-flex rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-amber-800'
-                    : 'inline-flex rounded-full bg-gray-200 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-gray-700';
-            }
-            if (adminDashboardBtn) {
-                const isAdmin = currentUser.role === 'admin';
-                adminDashboardBtn.classList.toggle('hidden', !isAdmin);
-            }
-            if (logoutBtn) {
-                logoutBtn.onclick = function () {
-                    sessionStorage.removeItem('currentUser');
-                    window.location.href = 'login.html';
-                };
-            }
+            if (initialsEl) initialsEl.textContent = 'PH';
+            if (nameEl) nameEl.textContent = '';
+            if (deptEl) deptEl.textContent = '';
         }
 
         function guardEmployeeAccess() {
-            const currentUser = getCurrentUser();
-            if (!currentUser) {
-                window.location.href = 'login.html';
-                return true;
-            }
             return false;
         }
 
@@ -1464,7 +1493,7 @@
                 contentArea.style.opacity = '1';
 
                 // Update Sidebar Active States
-                const navIds = ['nav-home', 'nav-request', 'nav-sop', 'nav-policies', 'nav-corner', 'nav-links'];
+                const navIds = ['nav-home', 'nav-create-ticket', 'nav-check-ticket', 'nav-ai-assistant', 'nav-knowledge-base', 'nav-sop', 'nav-policies', 'nav-announcements', 'nav-links', 'nav-corner'];
                 navIds.forEach(id => {
                     const btn = document.getElementById(id);
                     if(btn) {
@@ -1506,29 +1535,58 @@
             modal.classList.remove('flex');
         }
 
+        function openCheckTicket(ticketId = '') {
+            const modal = document.getElementById('check-ticket-modal');
+            const input = document.getElementById('check-ticket-id');
+            if (input && ticketId) input.value = ticketId;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            if (input) input.focus();
+            if (ticketId) checkTicketStatus();
+        }
+
+        function closeCheckTicket() {
+            const modal = document.getElementById('check-ticket-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function checkTicketStatus() {
+            const input = document.getElementById('check-ticket-id');
+            const result = document.getElementById('ticket-result');
+            const ticket = getTicket(input?.value);
+            if (!result) return;
+            result.classList.remove('hidden');
+            if (!ticket) {
+                result.innerHTML = '<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">Ticket tidak ditemukan. Periksa kembali Ticket ID kamu.</div>';
+                return;
+            }
+            const timeline = (ticket.timeline || []).map((item) => `<li class="flex items-center gap-3"><span class="h-2.5 w-2.5 rounded-full bg-surya-green"></span><span class="font-semibold">${item.status}</span><span class="text-xs text-gray-500">${new Date(item.at).toLocaleString()}</span></li>`).join('');
+            result.innerHTML = `<div class="space-y-4 rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm">
+                <div class="grid gap-2 sm:grid-cols-2"><p><b>Ticket ID:</b> ${ticket.id}</p><p><b>Status:</b> ${ticket.status}</p><p><b>Subject:</b> ${ticket.subject}</p><p><b>Category:</b> ${ticket.category}</p><p><b>Priority:</b> ${ticket.priority}</p><p><b>Created Date:</b> ${ticket.createdAt || ticket.createdDate}</p><p><b>Last Updated:</b> ${ticket.updatedAt || ticket.createdAt || ticket.createdDate}</p><p><b>PIC:</b> ${ticket.pic || 'Not assigned'}</p></div>
+                <p><b>Description:</b> ${ticket.description}</p><div><b>Timeline</b><ol class="mt-2 space-y-2">${timeline}</ol></div>
+                <button type="button" onclick="navigator.clipboard?.writeText('${ticket.id}'); showToast('Ticket ID copied.')" class="rounded-xl bg-white px-3 py-2 text-xs font-bold text-surya-green shadow-sm">Copy Ticket ID</button>
+            </div>`;
+        }
+
         document.getElementById('ticket-form').addEventListener('submit', function (event) {
             event.preventDefault();
-            const category = document.getElementById('ticket-category').value;
-            const subject = document.getElementById('ticket-subject').value.trim();
-            const description = document.getElementById('ticket-description').value.trim();
+            const attachment = document.getElementById('ticket-attachment')?.files[0];
             const ticket = createTicket({
-                category,
-                subject,
-                description,
-                employeeName: 'Employee',
-                employeeId: 'EMP-001',
-                department: 'IT',
-                priority: 'Medium',
-                status: 'Open'
+                name: document.getElementById('ticket-name').value.trim(),
+                email: document.getElementById('ticket-email').value.trim(),
+                department: document.getElementById('ticket-department').value.trim(),
+                category: document.getElementById('ticket-category').value,
+                priority: document.getElementById('ticket-priority').value,
+                subject: document.getElementById('ticket-subject').value.trim(),
+                description: document.getElementById('ticket-description').value.trim(),
+                attachment: attachment ? { name: attachment.name, type: attachment.type, size: attachment.size } : null
             });
 
-            const message = currentLang === 'id'
-                ? `Tiket "${ticket.subject}" berhasil dibuat dengan ID ${ticket.id}.`
-                : `Ticket "${ticket.subject}" was created with ID ${ticket.id}.`;
             closeTicketForm();
             this.reset();
-            showToast(message);
-            navigate('my-tickets');
+            openCheckTicket(ticket.id);
+            showToast(`Ticket berhasil dibuat. ID kamu: ${ticket.id}`);
         });
 
         // Accordion Logic for SOP Page

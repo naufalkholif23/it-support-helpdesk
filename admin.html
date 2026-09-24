@@ -245,9 +245,19 @@
             background: #dff3ff;
         }
 
+        .status.pending {
+            color: #7a4a00;
+            background: #fff0d6;
+        }
+
         .status.resolved {
             color: var(--green-dark);
             background: var(--green-soft);
+        }
+
+        .status.closed {
+            color: #4a5568;
+            background: #edf2f7;
         }
 
         .empty-state {
@@ -307,14 +317,14 @@
 <body>
     <div class="app">
         <aside class="sidebar" id="sidebar">
-            <p class="brand">Suryanesia HR<span>Helpdesk Administration</span></p>
+            <p class="brand">Suryanesia Employee<span>Hub Administration</span></p>
             <nav class="nav" aria-label="Admin navigation">
                 <a class="active" href="#dashboard">Dashboard</a>
                 <a href="#tickets">Tickets</a>
-                <a href="#employees">Employees</a>
-                <a href="#reports">Reports</a>
-                <a href="#settings">Settings</a>
-                <a href="index.html">Helpdesk Home</a>
+                <a href="#requests">Requests</a>
+                <a href="#assets">Assets</a>
+                <a href="#analytics">Analytics</a>
+                <a href="index.html">Employee Hub</a>
             </nav>
         </aside>
 
@@ -330,25 +340,25 @@
             <section class="content" id="dashboard">
                 <div class="welcome">
                     <h2>Good morning, Admin</h2>
-                    <p>Monitor and manage HR helpdesk requests from one place.</p>
+                    <p>Monitor and manage Employee Hub tickets, requests, and assets from one place.</p>
                 </div>
 
                 <section class="stats" aria-label="Ticket summary">
                     <article class="card">
                         <span class="stat-label">Total tickets</span>
-                        <strong class="stat-value" id="total-tickets">128</strong>
+                        <strong class="stat-value" id="total-tickets">0</strong>
                     </article>
                     <article class="card">
                         <span class="stat-label">Open tickets</span>
-                        <strong class="stat-value" id="open-tickets">24</strong>
+                        <strong class="stat-value" id="open-tickets">0</strong>
                     </article>
                     <article class="card">
                         <span class="stat-label">In progress</span>
-                        <strong class="stat-value" id="progress-tickets">16</strong>
+                        <strong class="stat-value" id="progress-tickets">0</strong>
                     </article>
                     <article class="card">
                         <span class="stat-label">Resolved this month</span>
-                        <strong class="stat-value" id="resolved-tickets">88</strong>
+                        <strong class="stat-value" id="resolved-tickets">0</strong>
                     </article>
                 </section>
 
@@ -361,7 +371,9 @@
                                 <option value="all">All statuses</option>
                                 <option value="open">Open</option>
                                 <option value="progress">In progress</option>
+                                <option value="pending">Pending</option>
                                 <option value="resolved">Resolved</option>
+                                <option value="closed">Closed</option>
                             </select>
                         </div>
                     </div>
@@ -433,24 +445,45 @@
             return Number.isNaN(date.getTime()) ? 'Recently' : date.toLocaleString();
         }
 
+        function normalizeStatus(status) {
+            const value = String(status || 'open').toLowerCase();
+            if (value.includes('progress')) return 'progress';
+            if (value.includes('pending')) return 'pending';
+            if (value.includes('resolved')) return 'resolved';
+            if (value.includes('closed')) return 'closed';
+            return 'open';
+        }
+
+        function labelForStatus(status) {
+            switch (normalizeStatus(status)) {
+                case 'progress': return 'In progress';
+                case 'pending': return 'Pending';
+                case 'resolved': return 'Resolved';
+                case 'closed': return 'Closed';
+                default: return 'Open';
+            }
+        }
+
         function renderStoredTickets() {
             const storedTickets = getStoredTickets();
+            ticketList.innerHTML = '';
             storedTickets.forEach((ticket) => {
                 const row = document.createElement('tr');
-                row.dataset.status = ticket.status || 'open';
+                const normalizedStatus = normalizeStatus(ticket.status);
+                row.dataset.status = normalizedStatus;
                 row.dataset.ticketId = ticket.id;
                 const values = [
                     `#${ticket.id}`,
                     ticket.subject,
-                    ticket.requester || 'Employee',
-                    ticket.status === 'progress' ? 'In progress' : 'Open',
-                    formatUpdatedAt(ticket.updatedAt)
+                    ticket.employeeName || ticket.requester || 'Employee',
+                    labelForStatus(ticket.status),
+                    formatUpdatedAt(ticket.updatedAt || ticket.createdDate)
                 ];
                 values.forEach((value, index) => {
                     const cell = document.createElement('td');
                     if (index === 3) {
                         const status = document.createElement('span');
-                        status.className = `status ${ticket.status || 'open'}`;
+                        status.className = `status ${normalizedStatus}`;
                         status.textContent = value;
                         cell.appendChild(status);
                     } else {
@@ -469,7 +502,7 @@
                 summary.total += 1;
                 summary[row.dataset.status] = (summary[row.dataset.status] || 0) + 1;
                 return summary;
-            }, { total: 0, open: 0, progress: 0, resolved: 0 });
+            }, { total: 0, open: 0, progress: 0, pending: 0, resolved: 0, closed: 0 });
 
             document.getElementById('total-tickets').textContent = counts.total;
             document.getElementById('open-tickets').textContent = counts.open;

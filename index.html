@@ -131,6 +131,26 @@
                 text-align: center;
             }
         }
+
+        .employee-hub-grid {
+            background-image: linear-gradient(rgba(0, 120, 61, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 120, 61, 0.04) 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+
+        .ai-widget {
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+        }
+
+        .ai-question-btn {
+            transition: all 0.2s ease;
+        }
+
+        .ai-question-btn:hover {
+            border-color: #00783d;
+            background: #def7e4;
+            color: #00783d;
+        }
     </style>
 </head>
 <body class="text-gray-800 h-screen flex overflow-hidden selection:bg-surya-green selection:text-white">
@@ -275,6 +295,44 @@
             </form>
         </div>
     </div>
+
+    <div id="ai-assistant-modal" class="fixed inset-0 z-[80] hidden items-center justify-center bg-gray-900/40 p-4">
+        <div class="ai-widget w-full max-w-xl rounded-3xl border border-gray-200 shadow-2xl overflow-hidden">
+            <div class="flex items-center justify-between bg-surya-green px-5 py-4 text-white">
+                <div>
+                    <p class="text-xs uppercase tracking-[0.2em] text-surya-lightgreen font-bold">Suryanesia AI</p>
+                    <h3 class="text-xl font-extrabold">Assistant</h3>
+                </div>
+                <button type="button" onclick="closeAiAssistant()" class="rounded-full bg-white/10 p-2 text-lg hover:bg-white/20"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-5">
+                <p class="mb-4 text-base font-medium text-gray-700">Hi! How can I help you?</p>
+                <div class="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-2" id="ai-suggested-questions">
+                    <button type="button" class="ai-question-btn rounded-xl border border-gray-200 bg-white px-3 py-2 text-left text-sm text-gray-700" data-question="How do I request leave?">How do I request leave?</button>
+                    <button type="button" class="ai-question-btn rounded-xl border border-gray-200 bg-white px-3 py-2 text-left text-sm text-gray-700" data-question="My laptop has a problem">My laptop has a problem</button>
+                    <button type="button" class="ai-question-btn rounded-xl border border-gray-200 bg-white px-3 py-2 text-left text-sm text-gray-700" data-question="WiFi is not working">WiFi is not working</button>
+                    <button type="button" class="ai-question-btn rounded-xl border border-gray-200 bg-white px-3 py-2 text-left text-sm text-gray-700" data-question="How do I request software?">How do I request software?</button>
+                    <button type="button" class="ai-question-btn rounded-xl border border-gray-200 bg-white px-3 py-2 text-left text-sm text-gray-700" data-question="Where can I find SOP?">Where can I find SOP?</button>
+                    <button type="button" class="ai-question-btn rounded-xl border border-gray-200 bg-white px-3 py-2 text-left text-sm text-gray-700" data-question="How do I contact IT Support?">How do I contact IT Support?</button>
+                </div>
+                <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                    <p id="ai-answer" class="text-sm text-gray-700 leading-relaxed">Ask a question and I will help you find an answer using our internal knowledge base.</p>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    <input id="ai-user-input" type="text" class="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm focus:outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen" placeholder="Type your question..." />
+                    <button type="button" onclick="submitAiQuery()" class="rounded-xl bg-surya-green px-4 py-2.5 text-sm font-bold text-white hover:bg-green-800">Ask</button>
+                </div>
+                <div id="ai-ticket-action" class="mt-4 hidden">
+                    <button type="button" onclick="createAiTicketFromContext()" class="w-full rounded-xl bg-amber-100 px-4 py-3 text-sm font-bold text-amber-800 hover:bg-amber-200">Create Support Ticket</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button id="ai-fab" type="button" onclick="openAiAssistant()" class="fixed bottom-6 right-6 z-70 flex items-center gap-3 rounded-full bg-surya-green px-4 py-3 text-sm font-bold text-white shadow-2xl hover:bg-green-800 transition-all">
+        <span class="text-xl">🤖</span>
+        <span class="hidden sm:inline">Ask Suryanesia AI</span>
+    </button>
 
     <script>
         let currentLang = '';
@@ -638,6 +696,627 @@
             }
         };
 
+        const STORAGE_KEYS = {
+            employees: 'suryanesia_employees',
+            tickets: 'suryanesia_tickets',
+            requests: 'suryanesia_requests',
+            assets: 'suryanesia_assets',
+            knowledgeBase: 'suryanesia_knowledge_base',
+            announcements: 'suryanesia_announcements',
+            notifications: 'suryanesia_notifications',
+            softwareInventory: 'suryanesia_software_inventory'
+        };
+
+        const knowledgeBase = [
+            { category: 'IT', keywords: ['wifi', 'internet', 'network'], answer: 'Silakan pastikan WiFi aktif. Disconnect lalu reconnect, restart laptop, dan coba jaringan lain. Jika masih bermasalah, gunakan tombol Create Support Ticket untuk membuat tiket jaringan.' },
+            { category: 'IT', keywords: ['laptop', 'notebook', 'device'], answer: 'Mulai dengan pengecekan charger, restart perangkat, dan pastikan driver/perangkat lunak sudah diperbarui. Jika masih bermasalah, tim IT dapat membantu melalui tiket support.' },
+            { category: 'HR', keywords: ['cuti', 'leave', 'izin'], answer: 'Untuk permohonan cuti, silakan kirimkan pengajuan melalui Request Center atau hubungi HR. Pastikan jangka waktu dan dokumen pendukung sudah tersedia.' },
+            { category: 'IT', keywords: ['software', 'license', 'application'], answer: 'Permintaan software atau lisensi dapat diajukan melalui Request Center dengan detail kebutuhan dan alasan penggunaan. Tim IT akan melakukan review approval.' },
+            { category: 'HR', keywords: ['sop', 'policy', 'procedure'], answer: 'Dokumen SOP dan kebijakan dapat diakses melalui menu SOP & Guidelines dan Policies di portal employee hub.' },
+            { category: 'IT', keywords: ['it support', 'contact', 'helpdesk'], answer: 'Silakan buka menu Request Center atau klik tombol Create Support Ticket untuk menghubungi tim IT Support.' },
+            { category: 'Security', keywords: ['password', 'phishing', 'security'], answer: 'Gunakan password unik, aktifkan MFA, dan hindari klik tautan mencurigakan. Jika Anda menerima email mencurigakan, segera laporkan ke tim keamanan IT.' }
+        ];
+
+        const defaultAnnouncements = [
+            { title: 'HR Announcement', category: 'HR', date: '2026-09-24', description: 'Perubahan jadwal payroll dan benefit akan berlaku mulai bulan depan.' },
+            { title: 'IT Announcement', category: 'IT', date: '2026-09-22', description: 'Pemeliharaan jaringan dilakukan pada hari Jumat pukul 23.00-01.00 WIB.' },
+            { title: 'Company Announcement', category: 'Company', date: '2026-09-20', description: 'Townhall meeting Q3 akan diselenggarakan pada hari Jumat, 25 Agustus 2026.' }
+        ];
+
+        function saveData(key, value) {
+            localStorage.setItem(key, JSON.stringify(value));
+        }
+
+        function loadData(key, fallback) {
+            try {
+                const raw = localStorage.getItem(key);
+                return raw ? JSON.parse(raw) : fallback;
+            } catch (error) {
+                console.warn('Unable to read storage key:', key, error);
+                return fallback;
+            }
+        }
+
+        function initializeData() {
+            const employees = loadData(STORAGE_KEYS.employees, [
+                { employeeName: 'Employee', employeeId: 'EMP-001', department: 'IT', email: 'employee@suryanesia.com' }
+            ]);
+            saveData(STORAGE_KEYS.employees, employees);
+
+            const tickets = loadData(STORAGE_KEYS.tickets, [
+                {
+                    id: 'IT-20260924-0001',
+                    employeeName: 'Employee',
+                    employeeId: 'EMP-001',
+                    department: 'IT',
+                    category: 'Network',
+                    priority: 'High',
+                    subject: 'WiFi Connection Issue',
+                    description: 'Laptop tidak bisa melakukan koneksi WiFi di ruang kerja. Sudah mencoba reconnect dan restart.',
+                    createdDate: '2026-09-24',
+                    status: 'Open',
+                    pic: 'IT Support',
+                    resolution: ''
+                }
+            ]);
+            saveData(STORAGE_KEYS.tickets, tickets);
+
+            const requests = loadData(STORAGE_KEYS.requests, [
+                { requestId: 'REQ-20260924-0001', requestType: 'Software Request', employee: 'Employee', description: 'Need Adobe Creative Cloud license for design tasks.', date: '2026-09-24', status: 'Pending' }
+            ]);
+            saveData(STORAGE_KEYS.requests, requests);
+
+            const assets = loadData(STORAGE_KEYS.assets, [
+                { assetNumber: 'AST-001', type: 'Laptop', brand: 'Dell', model: 'Latitude 7440', serialNumber: 'DL-2026-1201', condition: 'Good', assignedDate: '2026-01-15', accessories: ['Charger', 'Mouse', 'Monitor'] }
+            ]);
+            saveData(STORAGE_KEYS.assets, assets);
+
+            const announcements = loadData(STORAGE_KEYS.announcements, defaultAnnouncements);
+            saveData(STORAGE_KEYS.announcements, announcements);
+
+            const notifications = loadData(STORAGE_KEYS.notifications, [
+                'Ticket IT-20260924-0001 is now In Progress.',
+                'New IT announcement has been published.'
+            ]);
+            saveData(STORAGE_KEYS.notifications, notifications);
+
+            const softwareInventory = loadData(STORAGE_KEYS.softwareInventory, [
+                { name: 'Microsoft 365', licenseType: 'Enterprise', usage: 'Internal', maxUser: 300, deviceLimitation: 'Up to 5 devices per user', concurrentUsage: 'Unlimited', licenseNotes: 'Managed via Microsoft admin center' }
+            ]);
+            saveData(STORAGE_KEYS.softwareInventory, softwareInventory);
+
+            const knowledge = loadData(STORAGE_KEYS.knowledgeBase, knowledgeBase);
+            saveData(STORAGE_KEYS.knowledgeBase, knowledge);
+        }
+
+        function generateTicketId() {
+            const now = new Date();
+            const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+            const count = Number(localStorage.getItem('suryanesia_ticket_counter') || '0') + 1;
+            localStorage.setItem('suryanesia_ticket_counter', String(count));
+            return `IT-${stamp}-${String(count).padStart(4, '0')}`;
+        }
+
+        function generateRequestId() {
+            const now = new Date();
+            const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+            const count = Number(localStorage.getItem('suryanesia_request_counter') || '0') + 1;
+            localStorage.setItem('suryanesia_request_counter', String(count));
+            return `REQ-${stamp}-${String(count).padStart(4, '0')}`;
+        }
+
+        function createTicket(ticketData = {}) {
+            const tickets = loadData(STORAGE_KEYS.tickets, []);
+            const generatedTicket = {
+                id: ticketData.id || generateTicketId(),
+                employeeName: ticketData.employeeName || 'Employee',
+                employeeId: ticketData.employeeId || 'EMP-001',
+                department: ticketData.department || 'IT',
+                category: ticketData.category || 'Other',
+                priority: ticketData.priority || 'Medium',
+                subject: ticketData.subject || 'Support Request',
+                description: ticketData.description || '',
+                createdDate: ticketData.createdDate || new Date().toISOString().slice(0, 10),
+                status: ticketData.status || 'Open',
+                pic: ticketData.pic || 'IT Support',
+                resolution: ticketData.resolution || ''
+            };
+            tickets.unshift(generatedTicket);
+            saveData(STORAGE_KEYS.tickets, tickets);
+            return generatedTicket;
+        }
+
+        function createRequest(requestData = {}) {
+            const requests = loadData(STORAGE_KEYS.requests, []);
+            const created = {
+                requestId: requestData.requestId || generateRequestId(),
+                requestType: requestData.requestType || 'General Request',
+                employee: requestData.employee || 'Employee',
+                description: requestData.description || '',
+                date: requestData.date || new Date().toISOString().slice(0, 10),
+                status: requestData.status || 'Pending'
+            };
+            requests.unshift(created);
+            saveData(STORAGE_KEYS.requests, requests);
+            return created;
+        }
+
+        function getUserTickets() {
+            return loadData(STORAGE_KEYS.tickets, []).filter((ticket) => ticket.employeeName === 'Employee' || ticket.employeeId === 'EMP-001');
+        }
+
+        function getUserAssets() {
+            return loadData(STORAGE_KEYS.assets, []);
+        }
+
+        function searchKnowledge(query) {
+            const searchValue = (query || '').trim().toLowerCase();
+            if (!searchValue) return [];
+            return knowledgeBase.filter((item) => {
+                const keywords = item.keywords.map((word) => word.toLowerCase());
+                return keywords.some((word) => searchValue.includes(word) || word.includes(searchValue)) ||
+                    item.category.toLowerCase().includes(searchValue) ||
+                    item.answer.toLowerCase().includes(searchValue);
+            });
+        }
+
+        function setEmployeeHubHome() {
+            views.en.home = `
+                <div class="fade-in max-w-7xl mx-auto p-4 md:p-8 pb-12 employee-hub-grid">
+                    <div class="mb-8 rounded-[28px] bg-surya-green p-8 md:p-10 text-white shadow-lg relative overflow-hidden flex flex-col gap-6">
+                        <div class="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+                        <div class="absolute bottom-0 left-0 w-40 h-40 bg-surya-yellow opacity-10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/4"></div>
+                        <div class="z-10">
+                            <span class="inline-block py-1 px-3 rounded-full bg-white/20 text-white text-xs font-bold tracking-wider mb-4 border border-white/30">SURYA NESIA EMPLOYEE HUB</span>
+                            <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight mb-3">Welcome to Suryanesia Employee Hub 👋</h1>
+                            <p class="text-surya-lightgreen text-lg max-w-2xl opacity-90">Everything you need for work, support, learning, and requests in one modern employee portal.</p>
+                        </div>
+                        <div class="z-10 flex flex-wrap gap-3">
+                            <button onclick="openAiAssistant()" class="rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-surya-green shadow-sm hover:bg-surya-lightgreen">Ask AI</button>
+                            <button onclick="openTicketForm()" class="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">Create Ticket</button>
+                            <button onclick="navigate('my-tickets')" class="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">My Tickets</button>
+                        </div>
+                    </div>
+
+                    <div class="mb-10 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                        <button onclick="openAiAssistant()" class="hover-card bg-white p-5 rounded-2xl border border-gray-200 text-left"><div class="mb-4 w-12 h-12 rounded-xl bg-surya-lightblue text-blue-600 flex items-center justify-center text-2xl"><i class="fas fa-robot"></i></div><h3 class="font-bold text-gray-900">Ask AI</h3><p class="mt-2 text-sm text-gray-500">Get quick answers on HR, IT, and company policies.</p></button>
+                        <button onclick="openTicketForm()" class="hover-card bg-white p-5 rounded-2xl border border-gray-200 text-left"><div class="mb-4 w-12 h-12 rounded-xl bg-surya-lightgreen text-surya-green flex items-center justify-center text-2xl"><i class="fas fa-ticket-alt"></i></div><h3 class="font-bold text-gray-900">Create Ticket</h3><p class="mt-2 text-sm text-gray-500">Report IT issues or employee requests in seconds.</p></button>
+                        <button onclick="navigate('my-tickets')" class="hover-card bg-white p-5 rounded-2xl border border-gray-200 text-left"><div class="mb-4 w-12 h-12 rounded-xl bg-yellow-100 text-yellow-700 flex items-center justify-center text-2xl"><i class="fas fa-list-check"></i></div><h3 class="font-bold text-gray-900">My Tickets</h3><p class="mt-2 text-sm text-gray-500">Track progress, status, and resolution updates.</p></button>
+                        <button onclick="navigate('assets')" class="hover-card bg-white p-5 rounded-2xl border border-gray-200 text-left"><div class="mb-4 w-12 h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center text-2xl"><i class="fas fa-laptop"></i></div><h3 class="font-bold text-gray-900">My Assets</h3><p class="mt-2 text-sm text-gray-500">Review assigned laptop, accessories, and equipment.</p></button>
+                        <button onclick="navigate('knowledge-base')" class="hover-card bg-white p-5 rounded-2xl border border-gray-200 text-left"><div class="mb-4 w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-2xl"><i class="fas fa-book-open"></i></div><h3 class="font-bold text-gray-900">Knowledge Base</h3><p class="mt-2 text-sm text-gray-500">Search SOPs, guides, policies, and FAQs.</p></button>
+                        <button onclick="navigate('request')" class="hover-card bg-white p-5 rounded-2xl border border-gray-200 text-left"><div class="mb-4 w-12 h-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center text-2xl"><i class="fas fa-concierge-bell"></i></div><h3 class="font-bold text-gray-900">Request Center</h3><p class="mt-2 text-sm text-gray-500">Submit HR, IT, software, and employee requests.</p></button>
+                    </div>
+
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+                        <div class="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm">
+                            <div class="flex items-center justify-between mb-5">
+                                <h3 class="text-xl font-extrabold text-gray-900">Recent Activity</h3>
+                                <span class="text-xs font-bold text-surya-green bg-surya-lightgreen px-2.5 py-1 rounded-full">Live</span>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="rounded-2xl border border-gray-200 p-4">
+                                    <div class="flex items-center justify-between">
+                                        <p class="font-bold text-gray-900">Recent Tickets</p>
+                                        <span class="text-xs text-gray-500">Today</span>
+                                    </div>
+                                    <div class="mt-3 space-y-2">
+                                        <div class="flex justify-between text-sm text-gray-600"><span>IT-20260924-0001</span><span class="text-amber-600 font-bold">Open</span></div>
+                                        <div class="flex justify-between text-sm text-gray-600"><span>IT-20260920-0032</span><span class="text-blue-600 font-bold">In Progress</span></div>
+                                        <div class="flex justify-between text-sm text-gray-600"><span>IT-20260918-0108</span><span class="text-green-600 font-bold">Resolved</span></div>
+                                    </div>
+                                </div>
+                                <div class="rounded-2xl border border-gray-200 p-4">
+                                    <div class="flex items-center justify-between">
+                                        <p class="font-bold text-gray-900">Recent Requests</p>
+                                        <span class="text-xs text-gray-500">New</span>
+                                    </div>
+                                    <div class="mt-3 space-y-2">
+                                        <div class="flex justify-between text-sm text-gray-600"><span>Software Request</span><span class="text-violet-600 font-bold">Pending</span></div>
+                                        <div class="flex justify-between text-sm text-gray-600"><span>Leave Approval</span><span class="text-sky-600 font-bold">Processing</span></div>
+                                        <div class="flex justify-between text-sm text-gray-600"><span>Asset Request</span><span class="text-green-600 font-bold">Completed</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm">
+                            <div class="flex items-center justify-between mb-5">
+                                <h3 class="text-xl font-extrabold text-gray-900">Announcements</h3>
+                                <span class="text-xs font-bold text-white bg-surya-green px-2.5 py-1 rounded-full">3 New</span>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="rounded-2xl bg-amber-50 border border-amber-200 p-4">
+                                    <div class="flex items-center justify-between"><span class="text-xs font-bold uppercase tracking-wider text-amber-700">HR Announcement</span><span class="text-xs text-gray-500">24 Sep</span></div>
+                                    <h4 class="mt-2 font-bold text-gray-900">Payroll & Benefit Update</h4>
+                                    <p class="mt-1 text-sm text-gray-600">Benefit policy changes will be effective from next cycle.</p>
+                                </div>
+                                <div class="rounded-2xl bg-blue-50 border border-blue-200 p-4">
+                                    <div class="flex items-center justify-between"><span class="text-xs font-bold uppercase tracking-wider text-blue-700">IT Announcement</span><span class="text-xs text-gray-500">22 Sep</span></div>
+                                    <h4 class="mt-2 font-bold text-gray-900">Network Maintenance</h4>
+                                    <p class="mt-1 text-sm text-gray-600">System maintenance will occur Friday 23:00-01:00 WIB.</p>
+                                </div>
+                                <div class="rounded-2xl bg-emerald-50 border border-emerald-200 p-4">
+                                    <div class="flex items-center justify-between"><span class="text-xs font-bold uppercase tracking-wider text-emerald-700">Company Announcement</span><span class="text-xs text-gray-500">20 Sep</span></div>
+                                    <h4 class="mt-2 font-bold text-gray-900">Q3 Townhall Meeting</h4>
+                                    <p class="mt-1 text-sm text-gray-600">All employees are expected to attend the townhall event.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            views.id.home = `
+                <div class="fade-in max-w-7xl mx-auto p-4 md:p-8 pb-12 employee-hub-grid">
+                    <div class="mb-8 rounded-[28px] bg-surya-green p-8 md:p-10 text-white shadow-lg relative overflow-hidden flex flex-col gap-6">
+                        <div class="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+                        <div class="absolute bottom-0 left-0 w-40 h-40 bg-surya-yellow opacity-10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/4"></div>
+                        <div class="z-10">
+                            <span class="inline-block py-1 px-3 rounded-full bg-white/20 text-white text-xs font-bold tracking-wider mb-4 border border-white/30">SURYA NESIA EMPLOYEE HUB</span>
+                            <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight mb-3">Selamat datang di Suryanesia Employee Hub 👋</h1>
+                            <p class="text-surya-lightgreen text-lg max-w-2xl opacity-90">Semua kebutuhan kerja, dukungan, pembelajaran, dan permintaan berada dalam satu portal karyawan modern.</p>
+                        </div>
+                        <div class="z-10 flex flex-wrap gap-3">
+                            <button onclick="openAiAssistant()" class="rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-surya-green shadow-sm hover:bg-surya-lightgreen">Tanya AI</button>
+                            <button onclick="openTicketForm()" class="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">Buat Tiket</button>
+                            <button onclick="navigate('my-tickets')" class="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">Ticket Saya</button>
+                        </div>
+                    </div>
+
+                    <div class="mb-10 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                        <button onclick="openAiAssistant()" class="hover-card bg-white p-5 rounded-2xl border border-gray-200 text-left"><div class="mb-4 w-12 h-12 rounded-xl bg-surya-lightblue text-blue-600 flex items-center justify-center text-2xl"><i class="fas fa-robot"></i></div><h3 class="font-bold text-gray-900">Tanya AI</h3><p class="mt-2 text-sm text-gray-500">Dapatkan jawaban cepat seputar HR, IT, dan kebijakan perusahaan.</p></button>
+                        <button onclick="openTicketForm()" class="hover-card bg-white p-5 rounded-2xl border border-gray-200 text-left"><div class="mb-4 w-12 h-12 rounded-xl bg-surya-lightgreen text-surya-green flex items-center justify-center text-2xl"><i class="fas fa-ticket-alt"></i></div><h3 class="font-bold text-gray-900">Buat Tiket</h3><p class="mt-2 text-sm text-gray-500">Laporkan masalah IT atau kebutuhan karyawan dalam hitungan detik.</p></button>
+                        <button onclick="navigate('my-tickets')" class="hover-card bg-white p-5 rounded-2xl border border-gray-200 text-left"><div class="mb-4 w-12 h-12 rounded-xl bg-yellow-100 text-yellow-700 flex items-center justify-center text-2xl"><i class="fas fa-list-check"></i></div><h3 class="font-bold text-gray-900">Ticket Saya</h3><p class="mt-2 text-sm text-gray-500">Pantau status, progress, dan resolusi tiket Anda.</p></button>
+                        <button onclick="navigate('assets')" class="hover-card bg-white p-5 rounded-2xl border border-gray-200 text-left"><div class="mb-4 w-12 h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center text-2xl"><i class="fas fa-laptop"></i></div><h3 class="font-bold text-gray-900">Aset Saya</h3><p class="mt-2 text-sm text-gray-500">Lihat laptop, aksesori, dan perangkat yang telah ditugaskan.</p></button>
+                        <button onclick="navigate('knowledge-base')" class="hover-card bg-white p-5 rounded-2xl border border-gray-200 text-left"><div class="mb-4 w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-2xl"><i class="fas fa-book-open"></i></div><h3 class="font-bold text-gray-900">Knowledge Base</h3><p class="mt-2 text-sm text-gray-500">Cari SOP, panduan, kebijakan, dan FAQ internal.</p></button>
+                        <button onclick="navigate('request')" class="hover-card bg-white p-5 rounded-2xl border border-gray-200 text-left"><div class="mb-4 w-12 h-12 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center text-2xl"><i class="fas fa-concierge-bell"></i></div><h3 class="font-bold text-gray-900">Request Center</h3><p class="mt-2 text-sm text-gray-500">Ajukan kebutuhan HR, IT, perangkat lunak, dan aset kerja.</p></button>
+                    </div>
+
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+                        <div class="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm">
+                            <div class="flex items-center justify-between mb-5">
+                                <h3 class="text-xl font-extrabold text-gray-900">Aktivitas Terbaru</h3>
+                                <span class="text-xs font-bold text-surya-green bg-surya-lightgreen px-2.5 py-1 rounded-full">Live</span>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="rounded-2xl border border-gray-200 p-4">
+                                    <div class="flex items-center justify-between"><p class="font-bold text-gray-900">Ticket Terbaru</p><span class="text-xs text-gray-500">Hari ini</span></div>
+                                    <div class="mt-3 space-y-2">
+                                        <div class="flex justify-between text-sm text-gray-600"><span>IT-20260924-0001</span><span class="text-amber-600 font-bold">Open</span></div>
+                                        <div class="flex justify-between text-sm text-gray-600"><span>IT-20260920-0032</span><span class="text-blue-600 font-bold">In Progress</span></div>
+                                        <div class="flex justify-between text-sm text-gray-600"><span>IT-20260918-0108</span><span class="text-green-600 font-bold">Resolved</span></div>
+                                    </div>
+                                </div>
+                                <div class="rounded-2xl border border-gray-200 p-4">
+                                    <div class="flex items-center justify-between"><p class="font-bold text-gray-900">Permintaan Baru</p><span class="text-xs text-gray-500">Baru</span></div>
+                                    <div class="mt-3 space-y-2">
+                                        <div class="flex justify-between text-sm text-gray-600"><span>Software Request</span><span class="text-violet-600 font-bold">Pending</span></div>
+                                        <div class="flex justify-between text-sm text-gray-600"><span>Leave Approval</span><span class="text-sky-600 font-bold">Processing</span></div>
+                                        <div class="flex justify-between text-sm text-gray-600"><span>Asset Request</span><span class="text-green-600 font-bold">Completed</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm">
+                            <div class="flex items-center justify-between mb-5">
+                                <h3 class="text-xl font-extrabold text-gray-900">Pengumuman</h3>
+                                <span class="text-xs font-bold text-white bg-surya-green px-2.5 py-1 rounded-full">3 Baru</span>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="rounded-2xl bg-amber-50 border border-amber-200 p-4">
+                                    <div class="flex items-center justify-between"><span class="text-xs font-bold uppercase tracking-wider text-amber-700">HR Announcement</span><span class="text-xs text-gray-500">24 Sep</span></div>
+                                    <h4 class="mt-2 font-bold text-gray-900">Update Payroll & Benefit</h4>
+                                    <p class="mt-1 text-sm text-gray-600">Perubahan kebijakan benefit berlaku mulai siklus berikutnya.</p>
+                                </div>
+                                <div class="rounded-2xl bg-blue-50 border border-blue-200 p-4">
+                                    <div class="flex items-center justify-between"><span class="text-xs font-bold uppercase tracking-wider text-blue-700">IT Announcement</span><span class="text-xs text-gray-500">22 Sep</span></div>
+                                    <h4 class="mt-2 font-bold text-gray-900">Pemeliharaan Jaringan</h4>
+                                    <p class="mt-1 text-sm text-gray-600">Pemeliharaan sistem akan dilaksanakan Jumat 23:00-01:00 WIB.</p>
+                                </div>
+                                <div class="rounded-2xl bg-emerald-50 border border-emerald-200 p-4">
+                                    <div class="flex items-center justify-between"><span class="text-xs font-bold uppercase tracking-wider text-emerald-700">Company Announcement</span><span class="text-xs text-gray-500">20 Sep</span></div>
+                                    <h4 class="mt-2 font-bold text-gray-900">Townhall Meeting Q3</h4>
+                                    <p class="mt-1 text-sm text-gray-600">Seluruh karyawan diharapkan hadir pada acara townhall.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        setEmployeeHubHome();
+
+        views.en['my-tickets'] = `
+            <div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12">
+                <div class="mb-8 flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                        <span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">My Requests</span>
+                        <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">My Tickets</h2>
+                    </div>
+                    <button onclick="openTicketForm()" class="bg-surya-green text-white px-4 py-2 rounded-xl font-bold">New Ticket</button>
+                </div>
+                <div class="bg-white rounded-3xl border border-gray-200 shadow-sm p-4 md:p-6">
+                    <div class="mb-4 flex flex-col sm:flex-row gap-3">
+                        <input type="search" placeholder="Search ticket" class="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm focus:outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen" id="my-ticket-search" />
+                        <select class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm" id="my-ticket-status">
+                            <option value="all">All Status</option>
+                            <option value="Open">Open</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Resolved">Resolved</option>
+                            <option value="Closed">Closed</option>
+                        </select>
+                    </div>
+                    <div class="space-y-3" id="my-ticket-list"></div>
+                </div>
+            </div>
+        `;
+
+        views.id['my-tickets'] = views.en['my-tickets'];
+
+        views.en.assets = `
+            <div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12">
+                <div class="mb-8">
+                    <span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Assets</span>
+                    <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">My Assets</h2>
+                </div>
+                <div class="grid gap-5" id="asset-list"></div>
+            </div>
+        `;
+
+        views.id.assets = views.en.assets;
+
+        views.en['knowledge-base'] = `
+            <div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12">
+                <div class="mb-8">
+                    <span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Support Library</span>
+                    <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Knowledge Base</h2>
+                </div>
+                <div class="mb-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <input type="search" id="kb-search" placeholder="Search by topic, category, or keyword" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen" />
+                </div>
+                <div class="grid gap-4" id="knowledge-list"></div>
+            </div>
+        `;
+
+        views.id['knowledge-base'] = views.en['knowledge-base'];
+
+        function renderMyTickets() {
+            const list = document.getElementById('my-ticket-list');
+            if (!list) return;
+            const tickets = getUserTickets();
+            const searchValue = document.getElementById('my-ticket-search')?.value || '';
+            const selectedStatus = document.getElementById('my-ticket-status')?.value || 'all';
+            const filtered = tickets.filter((ticket) => {
+                const matchesQuery = !searchValue || ticket.subject.toLowerCase().includes(searchValue.toLowerCase()) || ticket.id.toLowerCase().includes(searchValue.toLowerCase());
+                const matchesStatus = selectedStatus === 'all' || ticket.status === selectedStatus;
+                return matchesQuery && matchesStatus;
+            });
+
+            list.innerHTML = filtered.length ? filtered.map((ticket) => `
+                <button onclick="showToast('Opening ${ticket.id}')" class="w-full block rounded-2xl border border-gray-200 bg-white p-4 text-left hover:border-surya-green hover:shadow-sm transition-all">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-wider text-surya-green">${ticket.id}</p>
+                            <h4 class="mt-1 text-lg font-bold text-gray-900">${ticket.subject}</h4>
+                        </div>
+                        <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${ticket.status === 'Open' ? 'bg-amber-100 text-amber-700' : ticket.status === 'Resolved' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}">${ticket.status}</span>
+                    </div>
+                    <div class="mt-3 flex flex-wrap gap-3 text-sm text-gray-600">
+                        <span>${ticket.category}</span>
+                        <span>Priority: ${ticket.priority}</span>
+                        <span>${ticket.createdDate}</span>
+                        <span>PIC: ${ticket.pic}</span>
+                    </div>
+                </button>
+            `).join('') : '<div class="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-500">No tickets found.</div>';
+        }
+
+        function renderAssets() {
+            const list = document.getElementById('asset-list');
+            if (!list) return;
+            const assets = getUserAssets();
+            list.innerHTML = assets.map((asset) => `
+                <div class="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="text-xs uppercase tracking-wider font-bold text-surya-green">${asset.type}</p>
+                            <h3 class="mt-1 text-xl font-extrabold text-gray-900">${asset.brand} ${asset.model}</h3>
+                        </div>
+                        <span class="rounded-full bg-green-100 text-green-700 px-2.5 py-1 text-xs font-bold">${asset.condition}</span>
+                    </div>
+                    <div class="mt-4 grid gap-3 text-sm text-gray-600 sm:grid-cols-2">
+                        <p><span class="font-bold text-gray-900">Asset Number:</span> ${asset.assetNumber}</p>
+                        <p><span class="font-bold text-gray-900">Serial Number:</span> ${asset.serialNumber}</p>
+                        <p><span class="font-bold text-gray-900">Assigned Date:</span> ${asset.assignedDate}</p>
+                        <p><span class="font-bold text-gray-900">Accessories:</span> ${asset.accessories.join(', ')}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderKnowledgeBase() {
+            const list = document.getElementById('knowledge-list');
+            if (!list) return;
+            const query = document.getElementById('kb-search')?.value || '';
+            const results = searchKnowledge(query).length ? searchKnowledge(query) : knowledgeBase.slice(0, 6);
+            list.innerHTML = results.map((item) => `
+                <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="text-xs uppercase tracking-wider font-bold text-surya-green">${item.category}</p>
+                            <h4 class="mt-1 text-lg font-bold text-gray-900">${item.category} Guide</h4>
+                        </div>
+                        <button type="button" onclick="openAiAssistant(); document.getElementById('ai-user-input').value='${item.keywords[0]}'; submitAiQuery();" class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-bold text-gray-700">Ask AI</button>
+                    </div>
+                    <p class="mt-3 text-sm text-gray-600">${item.answer}</p>
+                </div>
+            `).join('');
+        }
+
+        document.addEventListener('input', function (event) {
+            if (event.target && event.target.id === 'my-ticket-search') renderMyTickets();
+            if (event.target && event.target.id === 'my-ticket-status') renderMyTickets();
+            if (event.target && event.target.id === 'kb-search') renderKnowledgeBase();
+        });
+
+        function renderCustomViews() {
+            renderMyTickets();
+            renderAssets();
+            renderKnowledgeBase();
+        }
+
+        function initializeViewRenderHooks() {
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach(function (mutation) {
+                    if (mutation.type === 'childList' && mutation.target.id === 'content-area') {
+                        renderCustomViews();
+                    }
+                });
+            });
+            const contentArea = document.getElementById('content-area');
+            if (contentArea) observer.observe(contentArea, { childList: true, subtree: true });
+        }
+
+        initializeViewRenderHooks();
+
+        function openAiAssistant() {
+            const modal = document.getElementById('ai-assistant-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                const input = document.getElementById('ai-user-input');
+                if (input) input.focus();
+            }
+        }
+
+        function closeAiAssistant() {
+            const modal = document.getElementById('ai-assistant-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        function renderAiAnswer(text) {
+            const target = document.getElementById('ai-answer');
+            if (target) {
+                target.innerHTML = text;
+            }
+        }
+
+        function submitAiQuery() {
+            const input = document.getElementById('ai-user-input');
+            const question = input ? input.value.trim() : '';
+            if (!question) {
+                renderAiAnswer('Silakan tulis pertanyaan Anda agar saya dapat membantu.');
+                return;
+            }
+            const answer = answerAi(question);
+            renderAiAnswer(answer.message);
+            const ticketAction = document.getElementById('ai-ticket-action');
+            if (ticketAction) {
+                const showTicket = answer.canCreateTicket;
+                ticketAction.classList.toggle('hidden', !showTicket);
+                ticketAction.dataset.category = answer.category || 'IT';
+                ticketAction.dataset.subject = answer.subject || 'Support Request';
+                ticketAction.dataset.description = answer.description || question;
+            }
+        }
+
+        function answerAi(question) {
+            const normalized = question.toLowerCase();
+            const match = knowledgeBase.find((item) => item.keywords.some((keyword) => normalized.includes(keyword.toLowerCase())));
+            if (match) {
+                const placeholder = match.category === 'HR' ? 'Request Center' : 'Create Support Ticket';
+                return {
+                    message: `${match.answer}<br><br><strong>Suggested questions:</strong> ${knowledgeBase.filter((item) => item.category === match.category).map((item) => item.keywords[0]).slice(0, 3).join(', ')}`,
+                    canCreateTicket: true,
+                    category: match.category,
+                    subject: match.category === 'HR' ? 'HR Request' : 'IT Support Request',
+                    description: `${match.answer}\n\nUser issue: ${question}`,
+                    actionLabel: placeholder
+                };
+            }
+
+            return {
+                message: 'Maaf, saya belum menemukan informasi yang sesuai.<br><br><strong>Suggested questions:</strong> How do I request leave?, WiFi is not working, How do I contact IT Support?',
+                canCreateTicket: true,
+                category: 'Other',
+                subject: 'General Support Request',
+                description: `User asked: ${question}`
+            };
+        }
+
+        function createAiTicketFromContext() {
+            const action = document.getElementById('ai-ticket-action');
+            const category = action?.dataset.category || 'Other';
+            const subject = action?.dataset.subject || 'General Support Request';
+            const description = action?.dataset.description || 'AI-generated support request.';
+            openTicketForm();
+            const categoryField = document.getElementById('ticket-category');
+            const subjectField = document.getElementById('ticket-subject');
+            const descriptionField = document.getElementById('ticket-description');
+            if (categoryField) categoryField.value = category;
+            if (subjectField) subjectField.value = subject;
+            if (descriptionField) descriptionField.value = description;
+            closeAiAssistant();
+            showToast('AI-assisted ticket draft has been opened.');
+        }
+
+        document.addEventListener('click', function (event) {
+            const button = event.target.closest('[data-question]');
+            if (button) {
+                const question = button.getAttribute('data-question');
+                const input = document.getElementById('ai-user-input');
+                if (input) input.value = question;
+                const answer = answerAi(question);
+                renderAiAnswer(answer.message);
+                const ticketAction = document.getElementById('ai-ticket-action');
+                if (ticketAction) {
+                    ticketAction.classList.toggle('hidden', !answer.canCreateTicket);
+                    ticketAction.dataset.category = answer.category || 'IT';
+                    ticketAction.dataset.subject = answer.subject || 'Support Request';
+                    ticketAction.dataset.description = answer.description || question;
+                }
+            }
+        });
+
+        function handleGlobalSearch(value) {
+            const query = (value || '').trim();
+            if (!query) return;
+            const results = searchKnowledge(query);
+            if (results.length > 0) {
+                showToast(`Found ${results.length} knowledge result(s) for "${query}".`);
+            } else {
+                showToast('No matching knowledge base result. Try WiFi, leave, software, SOP, or IT support.');
+            }
+        }
+
+        function initializeSearchBehavior() {
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) {
+                searchInput.addEventListener('input', function (event) {
+                    handleGlobalSearch(event.target.value);
+                });
+            }
+        }
+
+        function syncNavigationButtons(viewId) {
+            const navIds = ['nav-home', 'nav-request', 'nav-sop', 'nav-policies', 'nav-corner', 'nav-links'];
+            navIds.forEach((id) => {
+                const btn = document.getElementById(id);
+                if (btn) {
+                    btn.className = 'nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all';
+                    if (id === 'nav-' + viewId) {
+                        btn.className = 'nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-surya-green bg-surya-lightgreen font-bold transition-all shadow-sm ring-1 ring-surya-green/20';
+                    }
+                }
+            });
+        }
+
         function setLanguage(lang) {
             if (currentLang === lang) return;
             currentLang = lang;
@@ -755,26 +1434,27 @@
 
         document.getElementById('ticket-form').addEventListener('submit', function (event) {
             event.preventDefault();
-            const tickets = JSON.parse(localStorage.getItem('suryanesiaHelpdeskTickets') || '[]');
-            const ticketNumber = String(Date.now()).slice(-6);
-            tickets.unshift({
-                id: `HD-${ticketNumber}`,
-                category: document.getElementById('ticket-category').value,
-                subject: document.getElementById('ticket-subject').value.trim(),
-                description: document.getElementById('ticket-description').value.trim(),
-                requester: 'Employee',
-                status: 'open',
-                updatedAt: new Date().toISOString()
-            });
-            localStorage.setItem('suryanesiaHelpdeskTickets', JSON.stringify(tickets));
-
+            const category = document.getElementById('ticket-category').value;
             const subject = document.getElementById('ticket-subject').value.trim();
+            const description = document.getElementById('ticket-description').value.trim();
+            const ticket = createTicket({
+                category,
+                subject,
+                description,
+                employeeName: 'Employee',
+                employeeId: 'EMP-001',
+                department: 'IT',
+                priority: 'Medium',
+                status: 'Open'
+            });
+
             const message = currentLang === 'id'
-                ? `Tiket "${subject}" berhasil dibuat. Tim HR akan segera menindaklanjuti.`
-                : `Ticket "${subject}" was created. The HR team will follow up shortly.`;
+                ? `Tiket "${ticket.subject}" berhasil dibuat dengan ID ${ticket.id}.`
+                : `Ticket "${ticket.subject}" was created with ID ${ticket.id}.`;
             closeTicketForm();
             this.reset();
             showToast(message);
+            navigate('my-tickets');
         });
 
         // Accordion Logic for SOP Page
@@ -792,6 +1472,8 @@
 
         // Initialize on load
         window.onload = function() {
+            initializeData();
+            initializeSearchBehavior();
             setLanguage('id');
             navigate('home');
         };

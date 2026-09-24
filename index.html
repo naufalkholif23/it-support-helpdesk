@@ -169,16 +169,16 @@
                     <i class="fas fa-home w-5 text-center text-lg"></i><span id="txt-nav-home">Home</span>
                 </button>
                 <button onclick="openAiAssistant()" id="nav-ai-assistant" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-robot w-5 text-center text-lg"></i><span>AI Assistant</span>
+                    <i class="fas fa-robot w-5 text-center text-lg"></i><span id="txt-nav-ai">AI Assistant</span>
                 </button>
                 <button onclick="openTicketForm()" id="nav-create-ticket" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-ticket-alt w-5 text-center text-lg"></i><span>Create Ticket</span>
+                    <i class="fas fa-ticket-alt w-5 text-center text-lg"></i><span id="txt-nav-create">Create Ticket</span>
                 </button>
                 <button onclick="openCheckTicket()" id="nav-check-ticket" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-search w-5 text-center text-lg"></i><span>Check Ticket</span>
+                    <i class="fas fa-search w-5 text-center text-lg"></i><span id="txt-nav-check">Check Ticket</span>
                 </button>
                 <button onclick="navigate('knowledge-base')" id="nav-knowledge-base" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-book-open w-5 text-center text-lg"></i><span>Knowledge Base</span>
+                    <i class="fas fa-book-open w-5 text-center text-lg"></i><span id="txt-nav-knowledge">Knowledge Base</span>
                 </button>
                 <button onclick="navigate('sop')" id="nav-sop" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
                     <i class="fas fa-book w-5 text-center text-lg"></i><span id="txt-nav-sop">SOP & Guidelines</span>
@@ -187,20 +187,20 @@
                     <i class="fas fa-gavel w-5 text-center text-lg"></i><span id="txt-nav-policies">Policies</span>
                 </button>
                 <button onclick="navigate('announcements')" id="nav-announcements" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-bullhorn w-5 text-center text-lg"></i><span>Announcements</span>
+                    <i class="fas fa-bullhorn w-5 text-center text-lg"></i><span id="txt-nav-announcements">Announcements</span>
                 </button>
                 <button onclick="navigate('profile')" id="nav-profile" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-user-circle w-5 text-center text-lg"></i><span>Profile</span>
+                    <i class="fas fa-user-circle w-5 text-center text-lg"></i><span id="txt-nav-profile">Profile</span>
                 </button>
                 <button onclick="navigate('links')" id="nav-links" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-link w-5 text-center text-lg"></i><span>Quick Links</span>
+                    <i class="fas fa-link w-5 text-center text-lg"></i><span id="txt-nav-links-label">Quick Links</span>
                 </button>
                 <button onclick="navigate('corner')" id="nav-corner" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-user-circle w-5 text-center text-lg"></i><span>Employee Corner</span>
+                    <i class="fas fa-user-circle w-5 text-center text-lg"></i><span id="txt-nav-corner-label">Employee Corner</span>
                 </button>
                 <div class="my-3 border-t border-gray-100" role="separator" aria-label="Admin access"></div>
                 <a href="admin-login.html" id="nav-admin-access" class="nav-btn flex w-full items-center space-x-3 rounded-xl px-3 py-3 text-left font-semibold text-gray-600 transition-all hover:bg-surya-lightgreen hover:text-surya-green">
-                    <i class="fas fa-lock w-5 text-center text-lg"></i><span>🔐 Admin Access</span>
+                    <i class="fas fa-lock w-5 text-center text-lg"></i><span id="txt-nav-admin">🔐 Admin Access</span>
                 </a>
             </nav>
         </div>
@@ -277,25 +277,25 @@
             </div>
             <form id="ticket-form" class="space-y-4 p-6">
                 <label class="block">
-                    <span class="mb-1.5 block text-sm font-bold text-gray-700">Nama</span>
+                    <span class="mb-1.5 block text-sm font-bold text-gray-700" id="ticket-name-label">Name</span>
                     <input id="ticket-name" required maxlength="100" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen" placeholder="Nama lengkap">
                 </label>
                 <label class="block">
-                    <span class="mb-1.5 block text-sm font-bold text-gray-700">Email / Kontak</span>
+                    <span class="mb-1.5 block text-sm font-bold text-gray-700" id="ticket-email-label">Email / Contact</span>
                     <input id="ticket-email" required type="email" maxlength="120" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen" placeholder="nama@perusahaan.com">
                 </label>
                 <label class="block">
-                    <span class="mb-1.5 block text-sm font-bold text-gray-700">Department</span>
+                    <span class="mb-1.5 block text-sm font-bold text-gray-700" id="ticket-department-label">Department</span>
                     <input id="ticket-department" required maxlength="80" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen" placeholder="Contoh: IT">
                 </label>
                 <label class="block">
-                    <span class="mb-1.5 block text-sm font-bold text-gray-700">Category</span>
+                    <span class="mb-1.5 block text-sm font-bold text-gray-700" id="ticket-category-label">Category</span>
                     <select id="ticket-category" required class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen">
                         <option>IT Support</option><option>Hardware</option><option>Software</option><option>Network</option><option>Account & Access</option><option>HR</option><option>Other</option>
                     </select>
                 </label>
                 <label class="block">
-                    <span class="mb-1.5 block text-sm font-bold text-gray-700">Priority</span>
+                    <span class="mb-1.5 block text-sm font-bold text-gray-700" id="ticket-priority-label">Priority</span>
                     <select id="ticket-priority" required class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen">
                         <option>Low</option><option selected>Medium</option><option>High</option><option>Critical</option>
                     </select>
@@ -309,7 +309,7 @@
                     <textarea id="ticket-description" required rows="4" class="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen" placeholder="Jelaskan kebutuhan Anda secara singkat"></textarea>
                 </label>
                 <label class="block">
-                    <span class="mb-1.5 block text-sm font-bold text-gray-700">Attachment (optional)</span>
+                    <span class="mb-1.5 block text-sm font-bold text-gray-700" id="ticket-attachment-label">Attachment (optional)</span>
                     <input id="ticket-attachment" type="file" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
                 </label>
                 <div class="flex justify-end gap-3 pt-2">
@@ -323,11 +323,11 @@
     <div id="check-ticket-modal" class="fixed inset-0 z-[85] hidden items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
         <div class="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
             <div class="flex items-center justify-between border-b border-gray-100 px-6 py-5">
-                <div><p class="text-xs font-bold uppercase tracking-wider text-surya-green">Public Helpdesk</p><h2 class="text-xl font-extrabold text-gray-900">Check Ticket Status</h2></div>
+                <div><p id="check-modal-label" class="text-xs font-bold uppercase tracking-wider text-surya-green">Public Helpdesk</p><h2 id="check-modal-title" class="text-xl font-extrabold text-gray-900">Check Ticket Status</h2></div>
                 <button type="button" onclick="closeCheckTicket()" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100" aria-label="Close"><i class="fas fa-times"></i></button>
             </div>
             <div class="space-y-4 p-6">
-                <div class="flex gap-2"><input id="check-ticket-id" class="min-w-0 flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm uppercase outline-none focus:border-surya-green" placeholder="IT-20260924-0001"><button type="button" onclick="checkTicketStatus()" class="rounded-xl bg-surya-green px-4 py-3 text-sm font-bold text-white">Cek Status</button></div>
+                <div class="flex gap-2"><input id="check-ticket-id" class="min-w-0 flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm uppercase outline-none focus:border-surya-green" placeholder="IT-20260924-0001"><button id="check-modal-submit" type="button" onclick="checkTicketStatus()" class="rounded-xl bg-surya-green px-4 py-3 text-sm font-bold text-white">Cek Status</button></div>
                 <div id="ticket-result" class="hidden"></div>
             </div>
         </div>
@@ -338,12 +338,12 @@
             <div class="flex items-center justify-between bg-surya-green px-5 py-4 text-white">
                 <div>
                     <p class="text-xs uppercase tracking-[0.2em] text-surya-lightgreen font-bold">Suryanesia AI</p>
-                    <h3 class="text-xl font-extrabold">Assistant</h3>
+                    <h3 id="ai-title" class="text-xl font-extrabold">Assistant</h3>
                 </div>
                 <button type="button" onclick="closeAiAssistant()" class="rounded-full bg-white/10 p-2 text-lg hover:bg-white/20"><i class="fas fa-times"></i></button>
             </div>
             <div class="p-5">
-                <p class="mb-4 text-base font-medium text-gray-700">Hi! How can I help you?</p>
+                <p id="ai-greeting" class="mb-4 text-base font-medium text-gray-700">Hi! How can I help you?</p>
                 <div class="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-2" id="ai-suggested-questions">
                     <button type="button" class="ai-question-btn rounded-xl border border-gray-200 bg-white px-3 py-2 text-left text-sm text-gray-700" data-question="How do I request leave?">How do I request leave?</button>
                     <button type="button" class="ai-question-btn rounded-xl border border-gray-200 bg-white px-3 py-2 text-left text-sm text-gray-700" data-question="My laptop has a problem">My laptop has a problem</button>
@@ -357,10 +357,10 @@
                 </div>
                 <div class="mt-4 flex gap-2">
                     <input id="ai-user-input" type="text" class="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm focus:outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen" placeholder="Type your question..." />
-                    <button type="button" onclick="submitAiQuery()" class="rounded-xl bg-surya-green px-4 py-2.5 text-sm font-bold text-white hover:bg-green-800">Ask</button>
+                    <button id="ai-ask" type="button" onclick="submitAiQuery()" class="rounded-xl bg-surya-green px-4 py-2.5 text-sm font-bold text-white hover:bg-green-800">Ask</button>
                 </div>
                 <div id="ai-ticket-action" class="mt-4 hidden">
-                    <button type="button" onclick="createAiTicketFromContext()" class="w-full rounded-xl bg-amber-100 px-4 py-3 text-sm font-bold text-amber-800 hover:bg-amber-200">Create Support Ticket</button>
+                    <button id="ai-create-ticket" type="button" onclick="createAiTicketFromContext()" class="w-full rounded-xl bg-amber-100 px-4 py-3 text-sm font-bold text-amber-800 hover:bg-amber-200">Create Support Ticket</button>
                 </div>
             </div>
         </div>
@@ -380,28 +380,74 @@
             en: {
                 mainMenu: "Main Menu",
                 navHome: "Home",
+                navAI: "AI Assistant",
+                navCreate: "Create Ticket",
+                navCheck: "Check Ticket",
+                navKnowledge: "Knowledge Base",
                 navRequest: "Request Center",
                 navSOP: "SOP & Guidelines",
                 navPolicies: "Policies",
+                navAnnouncements: "Announcements",
+                navProfile: "Profile",
                 navCorner: "Employee Corner",
                 navLinks: "Quick Links",
+                navAdmin: "🔐 Admin Access",
                 profileTitle: "Employee Profile",
                 profileSub: "View Settings",
                 newTicket: "New Ticket",
-                searchPlaceholder: "Search SOPs, policies, forms..."
+                searchPlaceholder: "Search SOPs, policies, forms...",
+                heroTitle: "Everything you need,<br>in one place.",
+                heroDescription: "A single portal to access SOPs, company policies, employee information, and request forms.",
+                checkLabel: "Public Helpdesk",
+                checkTitle: "Check Ticket Status",
+                checkSubmit: "Check Status",
+                ticketName: "Name",
+                ticketEmail: "Email / Contact",
+                ticketDepartment: "Department",
+                ticketCategory: "Category",
+                ticketPriority: "Priority",
+                ticketAttachment: "Attachment (optional)",
+                aiTitle: "Assistant",
+                aiGreeting: "Hi! How can I help you?",
+                aiPlaceholder: "Type your question...",
+                aiAsk: "Ask",
+                aiCreateTicket: "Create Support Ticket"
             },
             id: {
                 mainMenu: "Menu Utama",
                 navHome: "Beranda",
+                navAI: "Asisten AI",
+                navCreate: "Buat Tiket",
+                navCheck: "Cek Tiket",
+                navKnowledge: "Basis Pengetahuan",
                 navRequest: "Pusat Bantuan",
                 navSOP: "SOP & Panduan",
                 navPolicies: "Kebijakan",
+                navAnnouncements: "Pengumuman",
+                navProfile: "Profil",
                 navCorner: "Pojok Karyawan",
                 navLinks: "Tautan Cepat",
+                navAdmin: "🔐 Akses Admin",
                 profileTitle: "Profil Karyawan",
                 profileSub: "Lihat Pengaturan",
                 newTicket: "Buat Tiket",
-                searchPlaceholder: "Cari SOP, kebijakan, formulir..."
+                searchPlaceholder: "Cari SOP, kebijakan, formulir...",
+                heroTitle: "Semua yang Anda butuhkan,<br>dalam satu tempat.",
+                heroDescription: "Satu portal untuk mengakses SOP, kebijakan perusahaan, informasi karyawan, dan formulir permintaan.",
+                checkLabel: "Helpdesk Publik",
+                checkTitle: "Cek Status Tiket",
+                checkSubmit: "Cek Status",
+                ticketName: "Nama",
+                ticketEmail: "Email / Kontak",
+                ticketDepartment: "Departemen",
+                ticketCategory: "Kategori",
+                ticketPriority: "Prioritas",
+                ticketAttachment: "Lampiran (opsional)",
+                aiTitle: "Asisten",
+                aiGreeting: "Halo! Ada yang bisa saya bantu?",
+                aiPlaceholder: "Ketik pertanyaan Anda...",
+                aiAsk: "Tanya",
+                aiCreateTicket: "Buat Tiket Dukungan"
             }
         };
 
@@ -941,17 +987,17 @@
                         <div class="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-white/5 blur-3xl"></div>
                         <div class="absolute -bottom-28 left-1/3 h-64 w-64 rounded-full bg-surya-yellow/10 blur-3xl"></div>
                         <div class="relative z-10 flex flex-col items-start justify-between gap-9 md:flex-row md:items-center">
-                            <div class="max-w-2xl md:w-[58%]">
+                            <div class="max-w-2xl md:w-[62%]">
                                 <span class="mb-5 inline-flex rounded-full border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-white">Suryanesia Employee Hub</span>
-                                <h1 class="max-w-xl text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl md:text-5xl">Everything you need,<br>in one place.</h1>
-                                <p class="mt-5 max-w-2xl text-base leading-relaxed text-white/80 sm:text-lg md:text-xl">A single portal to access SOPs, company policies, employee information, and request forms.</p>
+                                <h1 class="max-w-2xl text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl md:text-5xl">${uiTranslations.en.heroTitle}</h1>
+                                <p class="mt-5 max-w-3xl text-base leading-relaxed text-white/80 sm:text-lg md:text-xl">${uiTranslations.en.heroDescription}</p>
                                 <div class="mt-7 flex flex-wrap gap-3">
                                     <button onclick="openAiAssistant()" class="rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-surya-green shadow-sm hover:bg-surya-lightgreen">Ask AI</button>
                                     <button onclick="openTicketForm()" class="rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-surya-green hover:bg-surya-lightgreen">🎫 Create Ticket</button>
                                     <button onclick="openCheckTicket()" class="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">🔎 Check Ticket</button>
                                 </div>
                             </div>
-                            <div class="relative z-10 flex w-full justify-center md:w-[42%] md:justify-end">
+                            <div class="relative z-10 flex w-full justify-center md:w-[38%] md:justify-end">
                                 <div class="flex h-[clamp(10rem,22vw,14rem)] w-[clamp(10rem,22vw,14rem)] shrink-0 items-center justify-center rounded-full bg-white p-[clamp(0.75rem,2vw,1.25rem)] shadow-2xl">
                                     <img src="favicon.ico" alt="Suryanesia icon" class="h-full w-full object-contain">
                                 </div>
@@ -1033,17 +1079,17 @@
                         <div class="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-white/5 blur-3xl"></div>
                         <div class="absolute -bottom-28 left-1/3 h-64 w-64 rounded-full bg-surya-yellow/10 blur-3xl"></div>
                         <div class="relative z-10 flex flex-col items-start justify-between gap-9 md:flex-row md:items-center">
-                            <div class="max-w-2xl md:w-[58%]">
+                            <div class="max-w-2xl md:w-[62%]">
                                 <span class="mb-5 inline-flex rounded-full border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-white">Suryanesia Employee Hub</span>
-                                <h1 class="max-w-xl text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl md:text-5xl">Everything you need,<br>in one place.</h1>
-                                <p class="mt-5 max-w-2xl text-base leading-relaxed text-white/80 sm:text-lg md:text-xl">A single portal to access SOPs, company policies, employee information, and request forms.</p>
+                                <h1 class="max-w-2xl text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl md:text-5xl">${uiTranslations.id.heroTitle}</h1>
+                                <p class="mt-5 max-w-3xl text-base leading-relaxed text-white/80 sm:text-lg md:text-xl">${uiTranslations.id.heroDescription}</p>
                                 <div class="mt-7 flex flex-wrap gap-3">
                                     <button onclick="openAiAssistant()" class="rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-surya-green shadow-sm hover:bg-surya-lightgreen">Tanya AI</button>
                                     <button onclick="openTicketForm()" class="rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-surya-green hover:bg-surya-lightgreen">🎫 Buat Ticket</button>
                                     <button onclick="openCheckTicket()" class="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">🔎 Cek Ticket</button>
                                 </div>
                             </div>
-                            <div class="relative z-10 flex w-full justify-center md:w-[42%] md:justify-end">
+                            <div class="relative z-10 flex w-full justify-center md:w-[38%] md:justify-end">
                                 <div class="flex h-[clamp(10rem,22vw,14rem)] w-[clamp(10rem,22vw,14rem)] shrink-0 items-center justify-center rounded-full bg-white p-[clamp(0.75rem,2vw,1.25rem)] shadow-2xl">
                                     <img src="favicon.ico" alt="Suryanesia icon" class="h-full w-full object-contain">
                                 </div>
@@ -1123,7 +1169,12 @@
             </div>
         `;
 
-        views.id['my-tickets'] = views.en['my-tickets'];
+        views.id['my-tickets'] = `
+            <div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12">
+                <div class="mb-8"><span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Helpdesk Publik</span><h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Cek Status Tiket</h2><p class="mt-2 text-gray-500">Untuk privasi, detail tiket hanya ditampilkan jika Anda memberikan ID Tiket yang tepat.</p></div>
+                <div class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm"><div class="flex flex-col gap-3 sm:flex-row"><input id="my-ticket-search" placeholder="IT-YYYYMMDD-XXXX" class="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm uppercase"><button onclick="openCheckTicket(document.getElementById('my-ticket-search').value)" class="rounded-xl bg-surya-green px-5 py-3 font-bold text-white">🔎 Cek Status</button></div></div>
+            </div>
+        `;
 
         views.en.assets = `
             <div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12">
@@ -1135,7 +1186,15 @@
             </div>
         `;
 
-        views.id.assets = views.en.assets;
+        views.id.assets = `
+            <div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12">
+                <div class="mb-8">
+                    <span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Aset</span>
+                    <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Aset Saya</h2>
+                </div>
+                <div class="grid gap-5" id="asset-list"></div>
+            </div>
+        `;
 
         views.en['knowledge-base'] = `
             <div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12">
@@ -1150,11 +1209,25 @@
             </div>
         `;
 
-        views.id['knowledge-base'] = views.en['knowledge-base'];
+        views.id['knowledge-base'] = `
+            <div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12">
+                <div class="mb-8">
+                    <span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Pustaka Bantuan</span>
+                    <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Basis Pengetahuan</h2>
+                </div>
+                <div class="mb-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <input type="search" id="kb-search" placeholder="Cari berdasarkan topik, kategori, atau kata kunci" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen" />
+                </div>
+                <div class="grid gap-4" id="knowledge-list"></div>
+            </div>
+        `;
 
         function renderMyTickets() {
             const list = document.getElementById('my-ticket-list');
             if (!list) return;
+            const labels = currentLang === 'id'
+                ? { priority: 'Prioritas', pic: 'PIC', empty: 'Tiket tidak ditemukan.' }
+                : { priority: 'Priority', pic: 'PIC', empty: 'No tickets found.' };
             const tickets = getUserTickets();
             const searchValue = document.getElementById('my-ticket-search')?.value || '';
             const selectedStatus = document.getElementById('my-ticket-status')?.value || 'all';
@@ -1175,17 +1248,20 @@
                     </div>
                     <div class="mt-3 flex flex-wrap gap-3 text-sm text-gray-600">
                         <span>${ticket.category}</span>
-                        <span>Priority: ${ticket.priority}</span>
+                        <span>${labels.priority}: ${ticket.priority}</span>
                         <span>${ticket.createdDate}</span>
-                        <span>PIC: ${ticket.pic}</span>
+                        <span>${labels.pic}: ${ticket.pic}</span>
                     </div>
                 </button>
-            `).join('') : '<div class="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-500">No tickets found.</div>';
+            `).join('') : `<div class="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-500">${labels.empty}</div>`;
         }
 
         function renderAssets() {
             const list = document.getElementById('asset-list');
             if (!list) return;
+            const labels = currentLang === 'id'
+                ? { asset: 'Nomor Aset', serial: 'Nomor Seri', assigned: 'Tanggal Penugasan', accessories: 'Aksesori' }
+                : { asset: 'Asset Number', serial: 'Serial Number', assigned: 'Assigned Date', accessories: 'Accessories' };
             const assets = getUserAssets();
             list.innerHTML = assets.map((asset) => `
                 <div class="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -1197,10 +1273,10 @@
                         <span class="rounded-full bg-green-100 text-green-700 px-2.5 py-1 text-xs font-bold">${asset.condition}</span>
                     </div>
                     <div class="mt-4 grid gap-3 text-sm text-gray-600 sm:grid-cols-2">
-                        <p><span class="font-bold text-gray-900">Asset Number:</span> ${asset.assetNumber}</p>
-                        <p><span class="font-bold text-gray-900">Serial Number:</span> ${asset.serialNumber}</p>
-                        <p><span class="font-bold text-gray-900">Assigned Date:</span> ${asset.assignedDate}</p>
-                        <p><span class="font-bold text-gray-900">Accessories:</span> ${asset.accessories.join(', ')}</p>
+                        <p><span class="font-bold text-gray-900">${labels.asset}:</span> ${asset.assetNumber}</p>
+                        <p><span class="font-bold text-gray-900">${labels.serial}:</span> ${asset.serialNumber}</p>
+                        <p><span class="font-bold text-gray-900">${labels.assigned}:</span> ${asset.assignedDate}</p>
+                        <p><span class="font-bold text-gray-900">${labels.accessories}:</span> ${asset.accessories.join(', ')}</p>
                     </div>
                 </div>
             `).join('');
@@ -1209,6 +1285,8 @@
         function renderKnowledgeBase() {
             const list = document.getElementById('knowledge-list');
             if (!list) return;
+            const guideLabel = currentLang === 'id' ? 'Panduan' : 'Guide';
+            const askLabel = currentLang === 'id' ? 'Tanya AI' : 'Ask AI';
             const query = document.getElementById('kb-search')?.value || '';
             const results = searchKnowledge(query).length ? searchKnowledge(query) : knowledgeBase.slice(0, 6);
             list.innerHTML = results.map((item) => `
@@ -1216,9 +1294,9 @@
                     <div class="flex items-start justify-between gap-3">
                         <div>
                             <p class="text-xs uppercase tracking-wider font-bold text-surya-green">${item.category}</p>
-                            <h4 class="mt-1 text-lg font-bold text-gray-900">${item.category} Guide</h4>
+                            <h4 class="mt-1 text-lg font-bold text-gray-900">${item.category} ${guideLabel}</h4>
                         </div>
-                        <button type="button" onclick="openAiAssistant(); document.getElementById('ai-user-input').value='${item.keywords[0]}'; submitAiQuery();" class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-bold text-gray-700">Ask AI</button>
+                        <button type="button" onclick="openAiAssistant(); document.getElementById('ai-user-input').value='${item.keywords[0]}'; submitAiQuery();" class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-bold text-gray-700">${askLabel}</button>
                     </div>
                     <p class="mt-3 text-sm text-gray-600">${item.answer}</p>
                 </div>
@@ -1431,21 +1509,40 @@
             const staticElements = {
                 'txt-main-menu': uiTranslations[lang].mainMenu,
                 'txt-nav-home': uiTranslations[lang].navHome,
+                'txt-nav-ai': uiTranslations[lang].navAI,
+                'txt-nav-create': uiTranslations[lang].navCreate,
+                'txt-nav-check': uiTranslations[lang].navCheck,
+                'txt-nav-knowledge': uiTranslations[lang].navKnowledge,
                 'txt-nav-request': uiTranslations[lang].navRequest,
                 'txt-nav-sop': uiTranslations[lang].navSOP,
                 'txt-nav-policies': uiTranslations[lang].navPolicies,
-                'txt-nav-corner': uiTranslations[lang].navCorner,
-                'txt-nav-links': uiTranslations[lang].navLinks,
+                'txt-nav-announcements': uiTranslations[lang].navAnnouncements,
+                'txt-nav-profile': uiTranslations[lang].navProfile,
+                'txt-nav-corner-label': uiTranslations[lang].navCorner,
+                'txt-nav-links-label': uiTranslations[lang].navLinks,
+                'txt-nav-admin': uiTranslations[lang].navAdmin,
                 'txt-profile-title': uiTranslations[lang].profileTitle,
                 'txt-profile-sub': uiTranslations[lang].profileSub,
                 'txt-new-ticket': uiTranslations[lang].newTicket,
                 'ticket-modal-label': lang === 'id' ? 'HR Helpdesk' : 'HR Helpdesk',
                 'ticket-modal-title': lang === 'id' ? 'Buat tiket baru' : 'Create a new ticket',
-                'ticket-category-label': lang === 'id' ? 'Kategori bantuan' : 'Support category',
                 'ticket-subject-label': lang === 'id' ? 'Subjek' : 'Subject',
                 'ticket-description-label': lang === 'id' ? 'Deskripsi' : 'Description',
+                'ticket-name-label': uiTranslations[lang].ticketName,
+                'ticket-email-label': uiTranslations[lang].ticketEmail,
+                'ticket-department-label': uiTranslations[lang].ticketDepartment,
+                'ticket-category-label': uiTranslations[lang].ticketCategory,
+                'ticket-priority-label': uiTranslations[lang].ticketPriority,
+                'ticket-attachment-label': uiTranslations[lang].ticketAttachment,
                 'ticket-cancel': lang === 'id' ? 'Batal' : 'Cancel',
-                'ticket-submit': lang === 'id' ? 'Kirim tiket' : 'Submit ticket'
+                'ticket-submit': lang === 'id' ? 'Kirim tiket' : 'Submit ticket',
+                'check-modal-label': uiTranslations[lang].checkLabel,
+                'check-modal-title': uiTranslations[lang].checkTitle,
+                'check-modal-submit': uiTranslations[lang].checkSubmit,
+                'ai-title': uiTranslations[lang].aiTitle,
+                'ai-greeting': uiTranslations[lang].aiGreeting,
+                'ai-ask': uiTranslations[lang].aiAsk,
+                'ai-create-ticket': uiTranslations[lang].aiCreateTicket
             };
 
             Object.entries(staticElements).forEach(([id, text]) => {
@@ -1457,6 +1554,8 @@
             if (searchInput) {
                 searchInput.placeholder = uiTranslations[lang].searchPlaceholder;
             }
+            const aiInput = document.getElementById('ai-user-input');
+            if (aiInput) aiInput.placeholder = uiTranslations[lang].aiPlaceholder;
 
             // Instantly re-render the current view
             renderView(currentViewId, true);

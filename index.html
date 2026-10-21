@@ -168,6 +168,9 @@
                 <button onclick="navigate('home')" id="nav-home" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
                     <i class="fas fa-home w-5 text-center text-lg"></i><span id="txt-nav-home">Home</span>
                 </button>
+                <button onclick="navigate('employees')" id="nav-employees" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
+                    <i class="fas fa-users w-5 text-center text-lg"></i><span id="txt-nav-employees">Employee Directory</span>
+                </button>
                 <button onclick="openAiAssistant()" id="nav-ai-assistant" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
                     <i class="fas fa-robot w-5 text-center text-lg"></i><span id="txt-nav-ai">AI Assistant</span>
                 </button>
@@ -380,6 +383,7 @@
             en: {
                 mainMenu: "Main Menu",
                 navHome: "Home",
+                navEmployees: "Employee Directory",
                 navAI: "AI Assistant",
                 navCreate: "Create Ticket",
                 navCheck: "Check Ticket",
@@ -416,6 +420,7 @@
             id: {
                 mainMenu: "Menu Utama",
                 navHome: "Beranda",
+                navEmployees: "Direktori Karyawan",
                 navAI: "Asisten AI",
                 navCreate: "Buat Tiket",
                 navCheck: "Cek Tiket",
@@ -1162,6 +1167,499 @@
 
         setEmployeeHubHome();
 
+        const employeeState = {
+            employees: [],
+            departments: [],
+            summary: { total: 0, active: 0, departments: 0 },
+            total: 0,
+            page: 1,
+            pageSize: 25,
+            authenticated: false,
+            user: null,
+            csrfToken: '',
+            loading: false,
+            error: '',
+            requestId: 0,
+            editingId: null
+        };
+
+        function employeeCopy() {
+            return currentLang === 'id' ? {
+                signIn: 'Masuk untuk melihat data karyawan.',
+                loadError: 'Gagal memuat direktori karyawan.',
+                forbidden: 'Akun Anda tidak memiliki izin untuk melihat direktori ini.',
+                networkError: 'Tidak dapat menghubungi API HRIS. Periksa koneksi lalu coba lagi.',
+                signInError: 'Gagal masuk.',
+                saveError: 'Gagal menyimpan data karyawan.',
+                deleteError: 'Gagal menghapus data karyawan.',
+                deleteConfirm: 'Hapus data karyawan ini? Tindakan ini tidak dapat dibatalkan.',
+                duplicate: 'ID karyawan atau email sudah digunakan.',
+                empty: 'Belum ada data karyawan.',
+                noResults: 'Tidak ditemukan karyawan yang cocok.',
+                active: 'Aktif',
+                inactive: 'Tidak aktif',
+                view: 'Lihat',
+                edit: 'Edit',
+                delete: 'Hapus',
+                details: 'Detail karyawan',
+                id: 'ID karyawan',
+                name: 'Nama lengkap',
+                email: 'Email',
+                department: 'Departemen',
+                position: 'Jabatan',
+                status: 'Status',
+                readOnly: 'Akses baca saja',
+                saving: 'Menyimpan...',
+                deleting: 'Menghapus...'
+            } : {
+                signIn: 'Sign in to view employee records.',
+                loadError: 'Could not load employee records.',
+                forbidden: 'Your account is not authorized to view this directory.',
+                networkError: 'Cannot connect to the HRIS API. Check the connection and retry.',
+                signInError: 'Sign-in failed.',
+                saveError: 'Could not save the employee record.',
+                deleteError: 'Could not delete the employee record.',
+                deleteConfirm: 'Delete this employee record? This cannot be undone.',
+                duplicate: 'Employee ID or email is already in use.',
+                empty: 'No employee records yet.',
+                noResults: 'No employees match these filters.',
+                active: 'Active',
+                inactive: 'Inactive',
+                view: 'View',
+                edit: 'Edit',
+                delete: 'Delete',
+                details: 'Employee details',
+                id: 'Employee ID',
+                name: 'Full name',
+                email: 'Email',
+                department: 'Department',
+                position: 'Position',
+                status: 'Status',
+                readOnly: 'Read-only access',
+                saving: 'Saving...',
+                deleting: 'Deleting...'
+            };
+        }
+
+        async function employeeApi(path, options) {
+            const requestOptions = Object.assign({ credentials: 'same-origin' }, options || {});
+            requestOptions.headers = Object.assign({}, requestOptions.headers || {});
+            if (requestOptions.body) requestOptions.headers['Content-Type'] = 'application/json';
+            if (requestOptions.method && requestOptions.method !== 'GET' && employeeState.csrfToken) {
+                requestOptions.headers['X-CSRF-Token'] = employeeState.csrfToken;
+            }
+
+            let response;
+            try {
+                response = await fetch(path, requestOptions);
+            } catch (error) {
+                throw new Error(employeeCopy().networkError);
+            }
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload.error || employeeCopy().loadError);
+            return payload;
+        }
+
+        async function initializeEmployeeDirectory() {
+            const requestId = ++employeeState.requestId;
+            employeeState.loading = true;
+            employeeState.error = '';
+            renderEmployeeDirectory();
+            try {
+                const session = await employeeApi('/api/auth/session');
+                if (requestId !== employeeState.requestId) return;
+                employeeState.authenticated = session.authenticated;
+                employeeState.user = session.user || null;
+                employeeState.csrfToken = session.user?.csrfToken || '';
+                if (!session.authenticated) {
+                    employeeState.employees = [];
+                    employeeState.departments = [];
+                    employeeState.summary = { total: 0, active: 0, departments: 0 };
+                    employeeState.total = 0;
+                    employeeState.loading = false;
+                    renderEmployeeDirectory();
+                    return;
+                }
+                await loadEmployees();
+            } catch (error) {
+                if (requestId !== employeeState.requestId) return;
+                employeeState.loading = false;
+                employeeState.error = error.message;
+                renderEmployeeDirectory();
+            }
+        }
+
+        async function loadEmployees() {
+            if (!employeeState.authenticated) return;
+            const requestId = ++employeeState.requestId;
+            employeeState.loading = true;
+            employeeState.error = '';
+            renderEmployeeDirectory();
+            const params = new URLSearchParams({
+                search: document.getElementById('employee-search')?.value || '',
+                department: document.getElementById('employee-department-filter')?.value || '',
+                status: document.getElementById('employee-status-filter')?.value || '',
+                page: String(employeeState.page),
+                pageSize: String(employeeState.pageSize)
+            });
+            try {
+                const result = await employeeApi(`/api/employees?${params.toString()}`);
+                if (requestId !== employeeState.requestId) return;
+                employeeState.employees = result.employees;
+                employeeState.departments = result.departments;
+                employeeState.summary = result.summary;
+                employeeState.total = result.total;
+                const lastPage = Math.max(1, Math.ceil(result.total / employeeState.pageSize));
+                if (employeeState.page > lastPage) {
+                    employeeState.page = lastPage;
+                    await loadEmployees();
+                    return;
+                }
+            } catch (error) {
+                if (requestId !== employeeState.requestId) return;
+                employeeState.error = error.message;
+            } finally {
+                if (requestId === employeeState.requestId) {
+                    employeeState.loading = false;
+                    renderEmployeeDirectory();
+                }
+            }
+        }
+
+        function employeeDirectoryView() {
+            const isIndonesian = currentLang === 'id';
+            const text = isIndonesian ? {
+                title: 'Direktori Karyawan',
+                subtitle: 'Direktori karyawan inti yang dikelola melalui API HRIS.',
+                warning: 'LINGKUNGAN PENGEMBANGAN • Hanya gunakan data sintetis. Bukan untuk data HR produksi.',
+                add: 'Tambah karyawan',
+                total: 'Total karyawan',
+                active: 'Karyawan aktif',
+                departments: 'Departemen',
+                search: 'Cari nama, ID, email, atau posisi',
+                allDepartments: 'Semua departemen',
+                allStatuses: 'Semua status',
+                employee: 'Karyawan',
+                department: 'Departemen',
+                position: 'Jabatan',
+                status: 'Status',
+                actions: 'Aksi',
+                view: 'Lihat',
+                edit: 'Edit',
+                delete: 'Hapus',
+                noResults: 'Tidak ditemukan karyawan yang cocok.',
+                empty: 'Belum ada data karyawan.',
+                detail: 'Detail karyawan',
+                close: 'Tutup',
+                formTitle: 'Tambah karyawan',
+                editTitle: 'Edit karyawan',
+                id: 'ID karyawan',
+                name: 'Nama lengkap',
+                email: 'Email',
+                positionPlaceholder: 'Contoh: Sample Analyst',
+                cancel: 'Batal',
+                save: 'Simpan',
+                activeStatus: 'Aktif',
+                inactiveStatus: 'Tidak aktif',
+                required: 'Wajib diisi',
+                signIn: 'Masuk ke direktori',
+                username: 'Username demo',
+                password: 'Password dari terminal server',
+                signInButton: 'Masuk',
+                signOut: 'Keluar',
+                loading: 'Memuat data karyawan...',
+                retry: 'Coba lagi',
+                deleteConfirm: 'Hapus data karyawan ini? Tindakan ini tidak dapat dibatalkan.',
+                loadError: 'Gagal memuat direktori karyawan.',
+                forbidden: 'Akun Anda tidak memiliki izin untuk melihat direktori ini.',
+                role: 'Peran',
+                readOnly: 'Akses baca saja',
+                duplicate: 'ID karyawan atau email sudah digunakan.',
+                previousPage: 'Sebelumnya',
+                nextPage: 'Berikutnya',
+                pageSummary: 'Halaman'
+            } : {
+                title: 'Employee Directory',
+                subtitle: 'Core employee directory managed through the HRIS API.',
+                warning: 'DEVELOPMENT ENVIRONMENT • Use synthetic data only. Not for production HR records.',
+                add: 'Add employee',
+                total: 'Total employees',
+                active: 'Active employees',
+                departments: 'Departments',
+                search: 'Search name, ID, email, or position',
+                allDepartments: 'All departments',
+                allStatuses: 'All statuses',
+                employee: 'Employee',
+                department: 'Department',
+                position: 'Position',
+                status: 'Status',
+                actions: 'Actions',
+                view: 'View',
+                edit: 'Edit',
+                delete: 'Delete',
+                noResults: 'No employees match these filters.',
+                empty: 'No employee records yet.',
+                detail: 'Employee details',
+                close: 'Close',
+                formTitle: 'Add employee',
+                editTitle: 'Edit employee',
+                id: 'Employee ID',
+                name: 'Full name',
+                email: 'Email',
+                positionPlaceholder: 'Example: Sample Analyst',
+                cancel: 'Cancel',
+                save: 'Save',
+                activeStatus: 'Active',
+                inactiveStatus: 'Inactive',
+                required: 'Required',
+                signIn: 'Sign in to employee directory',
+                username: 'Demo username',
+                password: 'Password from server terminal',
+                signInButton: 'Sign in',
+                signOut: 'Sign out',
+                loading: 'Loading employee records...',
+                retry: 'Retry',
+                deleteConfirm: 'Delete this employee record? This cannot be undone.',
+                loadError: 'Could not load the employee directory.',
+                forbidden: 'Your account is not authorized to view this directory.',
+                role: 'Role',
+                readOnly: 'Read-only access',
+                duplicate: 'Employee ID or email is already in use.',
+                previousPage: 'Previous',
+                nextPage: 'Next',
+                pageSummary: 'Page'
+            };
+
+            return `
+                <div class="fade-in mx-auto max-w-7xl p-4 pb-12 md:p-8">
+                    <div class="mb-6">
+                        <p class="mb-2 text-sm font-bold uppercase tracking-wider text-surya-green">Suryanesia Employee Hub</p>
+                        <h1 class="text-3xl font-extrabold tracking-tight text-gray-900">${text.title}</h1>
+                        <p class="mt-2 text-gray-500">${text.subtitle}</p>
+                    </div>
+                    <div role="note" class="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">${text.warning}</div>
+                    <section id="employee-auth-panel" class="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm" aria-label="${text.signIn}">
+                        <form id="employee-login-form" class="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                            <label class="block text-sm font-bold text-gray-700">${text.username}<input name="username" autocomplete="username" required maxlength="80" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 font-normal outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen"></label>
+                            <label class="block text-sm font-bold text-gray-700">${text.password}<input name="password" type="password" autocomplete="current-password" required class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 font-normal outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen"></label>
+                            <button type="submit" class="rounded-xl bg-surya-green px-5 py-3 text-sm font-bold text-white hover:bg-green-800">${text.signInButton}</button>
+                        </form>
+                        <div id="employee-user-panel" class="hidden items-center justify-between gap-3">
+                            <p id="employee-user-label" class="text-sm font-semibold text-gray-700"></p>
+                            <button id="employee-logout-button" type="button" class="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-50">${text.signOut}</button>
+                        </div>
+                        <div id="employee-error" role="alert" class="mt-3 hidden rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"></div>
+                    </section>
+                    <div id="employee-loading" class="mb-6 hidden rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-600" role="status">${text.loading}</div>
+                    <div class="mb-6 grid gap-4 sm:grid-cols-3">
+                        <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"><p class="text-sm text-gray-500">${text.total}</p><p id="employee-count" class="mt-2 text-3xl font-extrabold text-surya-green">0</p></article>
+                        <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"><p class="text-sm text-gray-500">${text.active}</p><p id="employee-active-count" class="mt-2 text-3xl font-extrabold text-surya-green">0</p></article>
+                        <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"><p class="text-sm text-gray-500">${text.departments}</p><p id="employee-department-count" class="mt-2 text-3xl font-extrabold text-surya-green">0</p></article>
+                    </div>
+                    <section class="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm" aria-labelledby="employee-table-title">
+                        <div class="flex flex-col gap-4 border-b border-gray-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+                            <h2 id="employee-table-title" class="text-xl font-extrabold text-gray-900">${text.title}</h2>
+                            <button id="employee-add-button" type="button" class="hidden rounded-xl bg-surya-green px-4 py-2.5 text-sm font-bold text-white hover:bg-green-800"><i class="fas fa-plus mr-2"></i>${text.add}</button>
+                        </div>
+                        <div class="grid gap-3 border-b border-gray-100 p-5 sm:grid-cols-3">
+                            <label class="sr-only" for="employee-search">${text.search}</label>
+                            <input id="employee-search" type="search" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen" placeholder="${text.search}">
+                            <label class="sr-only" for="employee-department-filter">${text.department}</label>
+                            <select id="employee-department-filter" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen"><option value="">${text.allDepartments}</option></select>
+                            <label class="sr-only" for="employee-status-filter">${text.status}</label>
+                            <select id="employee-status-filter" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen">
+                                <option value="">${text.allStatuses}</option><option value="active">${text.activeStatus}</option><option value="inactive">${text.inactiveStatus}</option>
+                            </select>
+                        </div>
+                        <div id="employee-error-state" class="hidden p-8 text-center" role="alert"><p id="employee-error-message" class="text-sm text-red-700"></p><button id="employee-retry-button" type="button" class="mt-4 rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-surya-green hover:bg-surya-lightgreen">${text.retry}</button></div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full min-w-[760px] text-left text-sm">
+                                <thead class="bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
+                                    <tr><th class="px-5 py-4">${text.employee}</th><th class="px-5 py-4">${text.department}</th><th class="px-5 py-4">${text.position}</th><th class="px-5 py-4">${text.status}</th><th class="px-5 py-4">${text.actions}</th></tr>
+                                </thead>
+                                <tbody id="employee-directory-list" class="divide-y divide-gray-100"></tbody>
+                            </table>
+                        </div>
+                        <div id="employee-empty-state" class="hidden p-8 text-center text-sm text-gray-500"></div>
+                        <div id="employee-pagination" class="hidden items-center justify-between gap-3 border-t border-gray-100 p-4">
+                            <button id="employee-page-previous" type="button" class="rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50">${text.previousPage}</button>
+                            <p id="employee-page-summary" class="text-center text-sm text-gray-500"></p>
+                            <button id="employee-page-next" type="button" class="rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50">${text.nextPage}</button>
+                        </div>
+                    </section>
+                    <section id="employee-detail" class="mt-6 hidden rounded-3xl border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="employee-detail-heading">
+                        <div class="mb-4 flex items-center justify-between gap-4">
+                            <h2 id="employee-detail-heading" class="text-xl font-extrabold text-gray-900">${text.detail}</h2>
+                            <button id="employee-detail-close" type="button" class="rounded-lg px-3 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100">${text.close}</button>
+                        </div>
+                        <dl id="employee-detail-fields" class="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3"></dl>
+                    </section>
+                    <div id="employee-form-modal" class="fixed inset-0 z-[90] hidden items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="employee-form-title">
+                        <div class="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
+                            <div class="mb-5 flex items-start justify-between gap-4">
+                                <div><p class="text-xs font-bold uppercase tracking-wider text-surya-green">Core HR</p><h2 id="employee-form-title" class="mt-1 text-xl font-extrabold text-gray-900">${text.formTitle}</h2></div>
+                                <button id="employee-form-close" type="button" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100" aria-label="${text.close}"><i class="fas fa-times"></i></button>
+                            </div>
+                            <form id="employee-form" class="space-y-4">
+                                <label class="block text-sm font-bold text-gray-700">${text.id}<input name="employeeId" required maxlength="30" pattern="[A-Za-z0-9][A-Za-z0-9\\-]{1,29}" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 font-normal outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen"></label>
+                                <label class="block text-sm font-bold text-gray-700">${text.name}<input name="employeeName" required maxlength="100" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 font-normal outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen"></label>
+                                <label class="block text-sm font-bold text-gray-700">${text.email}<input name="employeeEmail" type="email" required maxlength="254" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 font-normal outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen"></label>
+                                <label class="block text-sm font-bold text-gray-700">${text.department}<input name="employeeDepartment" required maxlength="100" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 font-normal outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen"></label>
+                                <label class="block text-sm font-bold text-gray-700">${text.position}<input name="employeePosition" required maxlength="100" placeholder="${text.positionPlaceholder}" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 font-normal outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen"></label>
+                                <label class="block text-sm font-bold text-gray-700">${text.status}<select name="employeeStatus" required class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 font-normal outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen"><option value="active">${text.activeStatus}</option><option value="inactive">${text.inactiveStatus}</option></select></label>
+                                <div class="flex justify-end gap-3 pt-2">
+                                    <button id="employee-form-cancel" type="button" class="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-50">${text.cancel}</button>
+                                    <button type="submit" class="rounded-xl bg-surya-green px-4 py-2.5 text-sm font-bold text-white hover:bg-green-800">${text.save}</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderEmployeeDirectory() {
+            const list = document.getElementById('employee-directory-list');
+            if (!list) return;
+
+            const isIndonesian = currentLang === 'id';
+            list.replaceChildren();
+            const loading = document.getElementById('employee-loading');
+            const errorState = document.getElementById('employee-error-state');
+            const errorMessage = document.getElementById('employee-error-message');
+            const emptyState = document.getElementById('employee-empty-state');
+            const authError = document.getElementById('employee-error');
+            if (loading) loading.classList.toggle('hidden', !employeeState.loading);
+            if (errorState) errorState.classList.toggle('hidden', !employeeState.error);
+            if (errorMessage) errorMessage.textContent = employeeState.error;
+            if (authError) {
+                authError.classList.add('hidden');
+                authError.textContent = '';
+            }
+            if (emptyState) {
+                emptyState.classList.add('hidden');
+                emptyState.textContent = '';
+            }
+            const table = list.closest('table');
+            if (table) table.classList.toggle('hidden', !employeeState.authenticated || Boolean(employeeState.error));
+            if (!employeeState.authenticated && emptyState) {
+                emptyState.textContent = isIndonesian ? 'Masuk untuk melihat direktori karyawan.' : 'Sign in to view employee records.';
+                emptyState.classList.remove('hidden');
+            }
+
+            employeeState.employees.forEach((employee) => {
+                const row = document.createElement('tr');
+                const identityCell = document.createElement('td');
+                identityCell.className = 'px-5 py-4';
+                const name = document.createElement('p');
+                name.className = 'font-bold text-gray-900';
+                name.textContent = employee.name;
+                const email = document.createElement('p');
+                email.className = 'mt-1 text-xs text-gray-500';
+                email.textContent = `${employee.id} · ${employee.email}`;
+                identityCell.append(name, email);
+                row.append(identityCell);
+
+                [employee.department, employee.position].forEach((value) => {
+                    const cell = document.createElement('td');
+                    cell.className = 'px-5 py-4 text-gray-600';
+                    cell.textContent = value;
+                    row.append(cell);
+                });
+
+                const statusCell = document.createElement('td');
+                statusCell.className = 'px-5 py-4';
+                const statusBadge = document.createElement('span');
+                statusBadge.className = employee.status === 'active'
+                    ? 'rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700'
+                    : 'rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-600';
+                statusBadge.textContent = employee.status === 'active'
+                    ? (isIndonesian ? 'Aktif' : 'Active')
+                    : (isIndonesian ? 'Tidak aktif' : 'Inactive');
+                statusCell.append(statusBadge);
+                row.append(statusCell);
+
+                const actionCell = document.createElement('td');
+                actionCell.className = 'px-5 py-4';
+                const viewButton = document.createElement('button');
+                viewButton.type = 'button';
+                viewButton.className = 'employee-detail-button rounded-lg px-3 py-2 font-bold text-surya-green hover:bg-surya-lightgreen';
+                viewButton.dataset.employeeId = employee.id;
+                viewButton.textContent = isIndonesian ? 'Lihat' : 'View';
+                actionCell.append(viewButton);
+                if (['hr_admin', 'system_admin'].includes(employeeState.user?.role)) {
+                    const editButton = document.createElement('button');
+                    editButton.type = 'button';
+                    editButton.className = 'employee-edit-button rounded-lg px-3 py-2 font-bold text-gray-700 hover:bg-gray-100';
+                    editButton.dataset.employeeId = employee.id;
+                    editButton.textContent = isIndonesian ? 'Edit' : 'Edit';
+                    const deleteButton = document.createElement('button');
+                    deleteButton.type = 'button';
+                    deleteButton.className = 'employee-delete-button rounded-lg px-3 py-2 font-bold text-red-700 hover:bg-red-50';
+                    deleteButton.dataset.employeeId = employee.id;
+                    deleteButton.textContent = isIndonesian ? 'Hapus' : 'Delete';
+                    actionCell.append(editButton, deleteButton);
+                }
+                actionCell.classList.add('whitespace-nowrap');
+                row.append(actionCell);
+                list.append(row);
+            });
+
+            if (!employeeState.loading && !employeeState.error && employeeState.authenticated && employeeState.employees.length === 0 && emptyState) {
+                const isEmptyDatabase = employeeState.summary.total === 0;
+                emptyState.textContent = isEmptyDatabase
+                    ? (isIndonesian ? 'Belum ada data karyawan.' : 'No employee records yet.')
+                    : (isIndonesian ? 'Tidak ditemukan karyawan yang cocok.' : 'No employees match these filters.');
+                emptyState.classList.remove('hidden');
+            }
+
+            const filter = document.getElementById('employee-department-filter');
+            if (filter) {
+                const previousValue = filter.value;
+                filter.replaceChildren(new Option(isIndonesian ? 'Semua departemen' : 'All departments', ''));
+                employeeState.departments.forEach((department) => filter.add(new Option(department, department)));
+                filter.value = previousValue;
+            }
+
+            document.getElementById('employee-count').textContent = String(employeeState.summary.total);
+            document.getElementById('employee-active-count').textContent = String(employeeState.summary.active);
+            document.getElementById('employee-department-count').textContent = String(employeeState.summary.departments);
+            const loginForm = document.getElementById('employee-login-form');
+            const userPanel = document.getElementById('employee-user-panel');
+            const addButton = document.getElementById('employee-add-button');
+            if (loginForm) loginForm.classList.toggle('hidden', employeeState.authenticated);
+            if (userPanel) {
+                userPanel.classList.toggle('hidden', !employeeState.authenticated);
+                userPanel.classList.toggle('flex', employeeState.authenticated);
+            }
+            if (addButton) {
+                addButton.classList.toggle('hidden', !['hr_admin', 'system_admin'].includes(employeeState.user?.role));
+            }
+            const userLabel = document.getElementById('employee-user-label');
+            if (userLabel && employeeState.user) {
+                const role = employeeState.user.role.replace(/_/g, ' ');
+                userLabel.textContent = `${employeeState.user.username} · ${role}${['employee', 'manager'].includes(employeeState.user.role) ? ` · ${employeeCopy().readOnly}` : ''}`;
+            }
+            const pagination = document.getElementById('employee-pagination');
+            if (pagination) {
+                const pageCount = Math.max(1, Math.ceil(employeeState.total / employeeState.pageSize));
+                pagination.classList.toggle(
+                    'hidden',
+                    !employeeState.authenticated || employeeState.total <= employeeState.pageSize
+                );
+                pagination.classList.toggle(
+                    'flex',
+                    employeeState.authenticated && employeeState.total > employeeState.pageSize
+                );
+                document.getElementById('employee-page-summary').textContent =
+                    `${currentLang === 'id' ? 'Halaman' : 'Page'} ${employeeState.page} / ${pageCount}`;
+                document.getElementById('employee-page-previous').disabled =
+                    employeeState.loading || employeeState.page <= 1;
+                document.getElementById('employee-page-next').disabled =
+                    employeeState.loading || employeeState.page >= pageCount;
+            }
+        }
+
         views.en['my-tickets'] = `
             <div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12">
                 <div class="mb-8"><span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Public Helpdesk</span><h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Check Ticket Status</h2><p class="mt-2 text-gray-500">For privacy, ticket details are shown only when you provide the exact Ticket ID.</p></div>
@@ -1303,16 +1801,239 @@
             `).join('');
         }
 
+        let employeeSearchTimer = null;
+
+        function showEmployeeError(message) {
+            const error = document.getElementById('employee-error');
+            if (!error) return;
+            error.textContent = message;
+            error.classList.remove('hidden');
+        }
+
+        function openEmployeeForm(employee) {
+            if (!['hr_admin', 'system_admin'].includes(employeeState.user?.role)) return;
+            const form = document.getElementById('employee-form');
+            const modal = document.getElementById('employee-form-modal');
+            employeeState.editingId = employee ? employee.id : null;
+            form.reset();
+            form.elements.employeeId.value = employee ? employee.id : '';
+            form.elements.employeeId.readOnly = Boolean(employee);
+            form.elements.employeeName.value = employee ? employee.name : '';
+            form.elements.employeeEmail.value = employee ? employee.email : '';
+            form.elements.employeeDepartment.value = employee ? employee.department : '';
+            form.elements.employeePosition.value = employee ? employee.position : '';
+            form.elements.employeeStatus.value = employee ? employee.status.toLowerCase() : 'active';
+            document.getElementById('employee-form-title').textContent = employee
+                ? (currentLang === 'id' ? 'Edit karyawan' : 'Edit employee')
+                : (currentLang === 'id' ? 'Tambah karyawan' : 'Add employee');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            form.elements.employeeId.focus();
+        }
+
+        function closeEmployeeForm() {
+            const modal = document.getElementById('employee-form-modal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            employeeState.editingId = null;
+        }
+
+        async function showEmployeeDetails(employeeId) {
+            try {
+                const result = await employeeApi(`/api/employees/${encodeURIComponent(employeeId)}`);
+                const employee = result.employee;
+                const copy = employeeCopy();
+                const detail = document.getElementById('employee-detail');
+                const fields = document.getElementById('employee-detail-fields');
+                const values = [
+                    [copy.id, employee.id],
+                    [copy.name, employee.name],
+                    [copy.email, employee.email],
+                    [copy.department, employee.department],
+                    [copy.position, employee.position],
+                    [copy.status, employee.status === 'active' ? copy.active : copy.inactive]
+                ];
+                fields.replaceChildren();
+                values.forEach(([label, value]) => {
+                    const item = document.createElement('div');
+                    const term = document.createElement('dt');
+                    term.className = 'font-semibold text-gray-500';
+                    term.textContent = label;
+                    const description = document.createElement('dd');
+                    description.className = 'mt-1 font-bold text-gray-900';
+                    description.textContent = value;
+                    item.append(term, description);
+                    fields.append(item);
+                });
+                document.getElementById('employee-detail-heading').textContent = copy.details;
+                detail.classList.remove('hidden');
+                detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } catch (error) {
+                showEmployeeError(error.message);
+            }
+        }
+
         document.addEventListener('input', function (event) {
             if (event.target && event.target.id === 'my-ticket-search') renderMyTickets();
             if (event.target && event.target.id === 'my-ticket-status') renderMyTickets();
             if (event.target && event.target.id === 'kb-search') renderKnowledgeBase();
+            if (event.target && event.target.id === 'employee-search') {
+                employeeState.page = 1;
+                clearTimeout(employeeSearchTimer);
+                employeeSearchTimer = setTimeout(loadEmployees, 250);
+            }
+        });
+
+        document.addEventListener('change', function (event) {
+            if (event.target && ['employee-department-filter', 'employee-status-filter'].includes(event.target.id)) {
+                employeeState.page = 1;
+                loadEmployees();
+            }
+        });
+
+        document.addEventListener('click', async function (event) {
+            const target = event.target;
+            if (!(target instanceof Element)) return;
+
+            if (target.closest('#employee-add-button')) {
+                openEmployeeForm(null);
+                return;
+            }
+            if (target.closest('#employee-form-close, #employee-form-cancel')) {
+                closeEmployeeForm();
+                return;
+            }
+            if (target.closest('#employee-detail-close')) {
+                document.getElementById('employee-detail').classList.add('hidden');
+                return;
+            }
+            if (target.closest('#employee-retry-button')) {
+                await initializeEmployeeDirectory();
+                return;
+            }
+            if (target.closest('#employee-page-previous') && employeeState.page > 1) {
+                employeeState.page -= 1;
+                await loadEmployees();
+                return;
+            }
+            if (target.closest('#employee-page-next') && employeeState.page < Math.ceil(employeeState.total / employeeState.pageSize)) {
+                employeeState.page += 1;
+                await loadEmployees();
+                return;
+            }
+            if (target.closest('#employee-logout-button')) {
+                try {
+                    await employeeApi('/api/auth/logout', { method: 'POST', body: '{}' });
+                    employeeState.authenticated = false;
+                    employeeState.user = null;
+                    employeeState.csrfToken = '';
+                    employeeState.employees = [];
+                    employeeState.summary = { total: 0, active: 0, departments: 0 };
+                    renderEmployeeDirectory();
+                } catch (error) {
+                    showEmployeeError(error.message);
+                }
+                return;
+            }
+
+            const detailButton = target.closest('.employee-detail-button');
+            if (detailButton) {
+                await showEmployeeDetails(detailButton.dataset.employeeId);
+                return;
+            }
+            const editButton = target.closest('.employee-edit-button');
+            if (editButton) {
+                const employee = employeeState.employees.find((item) => item.id === editButton.dataset.employeeId);
+                if (employee) openEmployeeForm(employee);
+                return;
+            }
+            const deleteButton = target.closest('.employee-delete-button');
+            if (deleteButton) {
+                if (!window.confirm(employeeCopy().deleteConfirm)) return;
+                deleteButton.disabled = true;
+                try {
+                    await employeeApi(`/api/employees/${encodeURIComponent(deleteButton.dataset.employeeId)}`, { method: 'DELETE' });
+                    document.getElementById('employee-detail').classList.add('hidden');
+                    await loadEmployees();
+                } catch (error) {
+                    showEmployeeError(error.message);
+                } finally {
+                    deleteButton.disabled = false;
+                }
+            }
+        });
+
+        document.addEventListener('submit', async function (event) {
+            if (!(event.target instanceof HTMLFormElement)) return;
+            if (event.target.id === 'employee-login-form') {
+                event.preventDefault();
+                const form = event.target;
+                const submit = form.querySelector('button[type="submit"]');
+                submit.disabled = true;
+                try {
+                    const result = await employeeApi('/api/auth/login', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            username: form.elements.username.value.trim(),
+                            password: form.elements.password.value
+                        })
+                    });
+                    employeeState.authenticated = true;
+                    employeeState.user = result.user;
+                    employeeState.csrfToken = result.csrfToken;
+                    form.reset();
+                    await loadEmployees();
+                } catch (error) {
+                    showEmployeeError(error.message || employeeCopy().signInError);
+                } finally {
+                    submit.disabled = false;
+                }
+                return;
+            }
+            if (event.target.id !== 'employee-form') return;
+            event.preventDefault();
+
+            const form = event.target;
+            const submit = form.querySelector('button[type="submit"]');
+            const isEditing = Boolean(employeeState.editingId);
+            const payload = {
+                id: form.elements.employeeId.value.trim(),
+                name: form.elements.employeeName.value.trim(),
+                email: form.elements.employeeEmail.value.trim(),
+                department: form.elements.employeeDepartment.value.trim(),
+                position: form.elements.employeePosition.value.trim(),
+                status: form.elements.employeeStatus.value
+            };
+            submit.disabled = true;
+            submit.textContent = employeeCopy().saving;
+            try {
+                await employeeApi(
+                    isEditing
+                        ? `/api/employees/${encodeURIComponent(employeeState.editingId)}`
+                        : '/api/employees',
+                    {
+                        method: isEditing ? 'PUT' : 'POST',
+                        body: JSON.stringify(payload)
+                    }
+                );
+                closeEmployeeForm();
+                form.reset();
+                document.getElementById('employee-detail').classList.add('hidden');
+                await loadEmployees();
+            } catch (error) {
+                showEmployeeError(error.message || employeeCopy().saveError);
+            } finally {
+                submit.disabled = false;
+                submit.textContent = currentLang === 'id' ? 'Simpan' : 'Save';
+            }
         });
 
         function renderCustomViews() {
             renderMyTickets();
             renderAssets();
             renderKnowledgeBase();
+            renderEmployeeDirectory();
         }
 
         function initializeViewRenderHooks() {
@@ -1452,7 +2173,7 @@
         }
 
         function syncNavigationButtons(viewId) {
-            const navIds = ['nav-home', 'nav-create-ticket', 'nav-check-ticket', 'nav-ai-assistant', 'nav-knowledge-base', 'nav-sop', 'nav-policies', 'nav-announcements', 'nav-links', 'nav-corner'];
+            const navIds = ['nav-home', 'nav-employees', 'nav-create-ticket', 'nav-check-ticket', 'nav-ai-assistant', 'nav-knowledge-base', 'nav-sop', 'nav-policies', 'nav-announcements', 'nav-links', 'nav-corner'];
             navIds.forEach((id) => {
                 const btn = document.getElementById(id);
                 if (btn) {
@@ -1509,6 +2230,7 @@
             const staticElements = {
                 'txt-main-menu': uiTranslations[lang].mainMenu,
                 'txt-nav-home': uiTranslations[lang].navHome,
+                'txt-nav-employees': uiTranslations[lang].navEmployees,
                 'txt-nav-ai': uiTranslations[lang].navAI,
                 'txt-nav-create': uiTranslations[lang].navCreate,
                 'txt-nav-check': uiTranslations[lang].navCheck,
@@ -1585,14 +2307,16 @@
             
             setTimeout(() => {
                 // Inject HTML using current view and language
-                contentArea.innerHTML = views[currentLang][viewId] || views[currentLang]['home'];
+                contentArea.innerHTML = viewId === 'employees'
+                    ? employeeDirectoryView()
+                    : views[currentLang][viewId] || views[currentLang]['home'];
                 // Reset scroll unless we are just toggling languages
                 if (!isLangSwitch) contentArea.scrollTop = 0; 
                 // Fade in
                 contentArea.style.opacity = '1';
 
                 // Update Sidebar Active States
-                const navIds = ['nav-home', 'nav-create-ticket', 'nav-check-ticket', 'nav-ai-assistant', 'nav-knowledge-base', 'nav-sop', 'nav-policies', 'nav-announcements', 'nav-links', 'nav-corner'];
+                const navIds = ['nav-home', 'nav-employees', 'nav-create-ticket', 'nav-check-ticket', 'nav-ai-assistant', 'nav-knowledge-base', 'nav-sop', 'nav-policies', 'nav-announcements', 'nav-links', 'nav-corner'];
                 navIds.forEach(id => {
                     const btn = document.getElementById(id);
                     if(btn) {
@@ -1602,6 +2326,7 @@
                         }
                     }
                 });
+                if (viewId === 'employees') initializeEmployeeDirectory();
             }, 150);
         }
 
@@ -1657,7 +2382,10 @@
             if (!result) return;
             result.classList.remove('hidden');
             if (!ticket) {
-                result.innerHTML = '<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">Ticket tidak ditemukan. Periksa kembali Ticket ID kamu.</div>';
+                const message = currentLang === 'id'
+                    ? 'Ticket tidak ditemukan. Periksa kembali Ticket ID kamu.'
+                    : 'Ticket not found. Please check the ticket ID and try again.';
+                result.innerHTML = `<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">${message}</div>`;
                 return;
             }
             const timeline = (ticket.timeline || []).map((item) => `<li class="flex items-center gap-3"><span class="h-2.5 w-2.5 rounded-full bg-surya-green"></span><span class="font-semibold">${item.status}</span><span class="text-xs text-gray-500">${new Date(item.at).toLocaleString()}</span></li>`).join('');
@@ -1715,6 +2443,7 @@
             if (event.key === 'Escape') {
                 toggleSidebar(false);
                 closeTicketForm();
+                closeEmployeeForm();
             }
         });
     </script>

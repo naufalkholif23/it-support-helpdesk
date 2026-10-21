@@ -621,43 +621,5 @@
             updateSummary();
         }
     </script>
-    <script>
-        // Defensive dashboard bootstrap for the prototype's localStorage-backed ticket view.
-        (function () {
-            const user = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
-            if (!user || user.role !== 'admin') return;
-            const list = document.getElementById('ticket-list');
-            if (!list) return;
-            const tickets = JSON.parse(localStorage.getItem('suryanesia_tickets') || '[]');
-            const statusKey = (status) => String(status || 'Open').toLowerCase().replace('in progress', 'progress');
-            const render = () => {
-                list.innerHTML = tickets.map((ticket) => {
-                    const key = statusKey(ticket.status);
-                    return `<tr data-status="${key}"><td>#${ticket.id}</td><td>${ticket.name || ticket.employeeName || 'Employee'}</td><td>${ticket.department || '-'}</td><td>${ticket.category || 'Other'}</td><td>${ticket.priority || 'Medium'}</td><td>${ticket.subject || '-'}</td><td><span class="status ${key}">${ticket.status || 'Open'}</span></td><td>${ticket.pic || 'Unassigned'}</td><td>${ticket.createdAt || ticket.createdDate || '-'}</td><td><select class="fallback-status" data-id="${ticket.id}"><option ${ticket.status === 'Open' ? 'selected' : ''}>Open</option><option ${ticket.status === 'In Progress' ? 'selected' : ''}>In Progress</option><option ${ticket.status === 'Pending' ? 'selected' : ''}>Pending</option><option ${ticket.status === 'Resolved' ? 'selected' : ''}>Resolved</option><option ${ticket.status === 'Closed' ? 'selected' : ''}>Closed</option></select><input class="fallback-pic" data-id="${ticket.id}" placeholder="PIC" value="${ticket.pic || ''}"><input class="fallback-resolution" data-id="${ticket.id}" placeholder="Resolution notes" value="${ticket.resolution || ''}"><button type="button" class="fallback-save" data-id="${ticket.id}">Save</button></td></tr>`;
-                }).join('');
-                ['total-tickets', 'open-tickets', 'progress-tickets', 'pending-tickets', 'resolved-tickets', 'closed-tickets'].forEach((id) => {
-                    const key = id.replace('-tickets', '').replace('progress', 'progress');
-                    const count = key === 'total' ? tickets.length : tickets.filter((ticket) => statusKey(ticket.status) === key).length;
-                    const element = document.getElementById(id);
-                    if (element) element.textContent = count;
-                });
-            };
-            list.addEventListener('click', (event) => {
-                const button = event.target.closest('.fallback-save');
-                if (!button) return;
-                const ticket = tickets.find((item) => item.id === button.dataset.id);
-                if (!ticket) return;
-                const previousStatus = ticket.status;
-                ticket.status = list.querySelector(`.fallback-status[data-id="${ticket.id}"]`).value;
-                ticket.pic = list.querySelector(`.fallback-pic[data-id="${ticket.id}"]`).value.trim() || null;
-                ticket.resolution = list.querySelector(`.fallback-resolution[data-id="${ticket.id}"]`).value.trim() || null;
-                ticket.updatedAt = new Date().toISOString();
-                if (ticket.status !== previousStatus) ticket.timeline = [...(ticket.timeline || []), { status: ticket.status, at: ticket.updatedAt }];
-                localStorage.setItem('suryanesia_tickets', JSON.stringify(tickets));
-                render();
-            });
-            render();
-        }());
-    </script>
 </body>
 </html>

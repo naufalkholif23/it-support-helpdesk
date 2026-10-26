@@ -198,6 +198,30 @@ def json_bytes(value):
     return json.dumps(value, ensure_ascii=False).encode("utf-8")
 
 
+def employee_summary(connection, include_monthly_records=False):
+    statement = (
+        "SELECT COUNT(*) AS total, "
+        "COALESCE(SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END), 0) AS active, "
+        "COALESCE(SUM(CASE WHEN status = 'inactive' THEN 1 ELSE 0 END), 0) AS inactive, "
+        "COUNT(DISTINCT department) AS departments"
+    )
+    parameters = ()
+    if include_monthly_records:
+        now = datetime.now(timezone.utc)
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        next_month = (
+            month_start.replace(year=month_start.year + 1, month=1)
+            if month_start.month == 12
+            else month_start.replace(month=month_start.month + 1)
+        )
+        statement += (
+            ", COALESCE(SUM(CASE WHEN created_at >= ? AND created_at < ? "
+            "THEN 1 ELSE 0 END), 0) AS new_this_month"
+        )
+        parameters = (month_start.isoformat(), next_month.isoformat())
+    return dict(connection.execute(statement + " FROM employees", parameters).fetchone())
+
+
 def validate_employee(payload, employee_id=None):
     if not isinstance(payload, dict):
         raise ValueError("Request body must be a JSON object.")
@@ -314,35 +338,51 @@ class HRISHandler(SimpleHTTPRequestHandler):
             employee_id = match.group(1)
             payload = self.read_json_body()
             employee = validate_employee(payload, employee_id)
+            expected_updated_at = payload.get("updated_at")
+            if expected_updated_at is not None and (
+                not isinstance(expected_updated_at, str) or not expected_updated_at
+            ):
+                raise ValueError("updated_at must be a non-empty string.")
+            updated_at = datetime.now(timezone.utc).isoformat()
             with DATABASE_LOCK:
                 connection = connect_database()
                 try:
                     cursor = connection.execute(
                         "UPDATE employees SET employee_id = ?, full_name = ?, email = ?, "
                         "department = ?, position = ?, status = ?, updated_at = ? "
-                        "WHERE employee_id = ?",
+                        "WHERE employee_id = ?" + (" AND updated_at = ?" if expected_updated_at else ""),
                         (
                             employee["id"], employee["name"], employee["email"],
                             employee["department"], employee["position"], employee["status"],
-                            datetime.now(timezone.utc).isoformat(), employee_id,
-                        ),
+                            updated_at, employee_id,
+                        ) + ((expected_updated_at,) if expected_updated_at else ()),
                     )
                     if cursor.rowcount == 0:
+                        current = connection.execute(
+                            "SELECT updated_at FROM employees WHERE employee_id = ?",
+                            (employee_id,),
+                        ).fetchone()
                         connection.rollback()
-                        self.send_json(404, {"error": "Employee not found."})
+                        if current and expected_updated_at:
+                            self.send_json(
+                                409,
+                                {"error": "Employee record changed. Reload it before saving."},
+                            )
+                        else:
+                            self.send_json(404, {"error": "Employee not found."})
                         return
                     connection.execute(
                         "INSERT INTO audit_logs (actor, action, employee_id, occurred_at, details) "
                         "VALUES (?, ?, ?, ?, ?)",
                         (
-                            user["username"], "employee.updated", employee_id,
-                            datetime.now(timezone.utc).isoformat(),
+                            user["username"], "employee.updated", employee_id, updated_at,
                             json.dumps({"fields": ["name", "email", "department", "position", "status"]}),
                         ),
                     )
                     connection.commit()
                 finally:
                     connection.close()
+            employee["updated_at"] = updated_at
             self.send_json(200, {"employee": employee})
         except PermissionError as error:
             self.send_json(403, {"error": str(error)})
@@ -407,6 +447,10 @@ class HRISHandler(SimpleHTTPRequestHandler):
                 self.send_json(200, {"authenticated": True, "user": user})
                 return
             user = self.require_user()
+            if parsed.path == "/api/dashboard/summary":
+                self.require_role(user, READ_ROLES)
+                self.dashboard_summary()
+                return
             if parsed.path == "/api/employees":
                 self.require_role(user, READ_ROLES)
                 self.list_employees(parse_qs(parsed.query))
@@ -549,7 +593,10 @@ class HRISHandler(SimpleHTTPRequestHandler):
     def list_employees(self, query):
         search = query.get("search", [""])[0].strip()[:100]
         department = query.get("department", [""])[0].strip()[:100]
+        position = query.get("position", [""])[0].strip()[:100]
         status = query.get("status", [""])[0].strip().lower()
+        sort_by = query.get("sortBy", ["name"])[0].strip().lower()
+        sort_order = query.get("sortOrder", ["asc"])[0].strip().lower()
         try:
             page = max(1, int(query.get("page", ["1"])[0]))
             page_size = min(100, max(1, int(query.get("pageSize", ["25"])[0])))
@@ -558,6 +605,16 @@ class HRISHandler(SimpleHTTPRequestHandler):
             return
         if status and status not in ("active", "inactive"):
             self.send_json(400, {"error": "Status must be active or inactive."})
+            return
+        sort_columns = {
+            "name": "LOWER(full_name)",
+            "id": "LOWER(employee_id)",
+            "department": "LOWER(department)",
+            "position": "LOWER(position)",
+            "status": "status",
+        }
+        if sort_by not in sort_columns or sort_order not in ("asc", "desc"):
+            self.send_json(400, {"error": "Sort field or direction is invalid."})
             return
 
         conditions = []
@@ -575,6 +632,9 @@ class HRISHandler(SimpleHTTPRequestHandler):
         if department:
             conditions.append("department = ?")
             values.append(department)
+        if position:
+            conditions.append("position = ?")
+            values.append(position)
         if status:
             conditions.append("status = ?")
             values.append(status)
@@ -586,20 +646,24 @@ class HRISHandler(SimpleHTTPRequestHandler):
                 total = connection.execute(
                     "SELECT COUNT(*) AS count FROM employees" + where, values
                 ).fetchone()["count"]
-                summary = connection.execute(
-                    "SELECT COUNT(*) AS total, "
-                    "COALESCE(SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END), 0) AS active, "
-                    "COUNT(DISTINCT department) AS departments FROM employees"
-                ).fetchone()
+                summary = employee_summary(connection)
                 departments = [
                     row["department"]
                     for row in connection.execute(
                         "SELECT DISTINCT department FROM employees ORDER BY LOWER(department)"
                     ).fetchall()
                 ]
+                positions = [
+                    row["position"]
+                    for row in connection.execute(
+                        "SELECT DISTINCT position FROM employees ORDER BY LOWER(position)"
+                    ).fetchall()
+                ]
                 rows = connection.execute(
-                    "SELECT employee_id AS id, full_name AS name, email, department, position, status "
-                    "FROM employees" + where + " ORDER BY LOWER(full_name) "
+                    "SELECT employee_id AS id, full_name AS name, email, department, position, status, updated_at "
+                    "FROM employees" + where + " ORDER BY {} {}, LOWER(employee_id) ASC ".format(
+                        sort_columns[sort_by], sort_order.upper()
+                    ) +
                     "LIMIT ? OFFSET ?",
                     values + [page_size, (page - 1) * page_size],
                 ).fetchall()
@@ -612,6 +676,28 @@ class HRISHandler(SimpleHTTPRequestHandler):
             "pageSize": page_size,
             "summary": dict(summary),
             "departments": departments,
+            "positions": positions,
+        })
+
+    def dashboard_summary(self):
+        with DATABASE_LOCK:
+            connection = connect_database()
+            try:
+                summary = employee_summary(connection, include_monthly_records=True)
+                by_status = connection.execute(
+                    "SELECT status, COUNT(*) AS total FROM employees "
+                    "GROUP BY status ORDER BY status"
+                ).fetchall()
+                by_department = connection.execute(
+                    "SELECT department, COUNT(*) AS total FROM employees "
+                    "GROUP BY department ORDER BY total DESC, LOWER(department)"
+                ).fetchall()
+            finally:
+                connection.close()
+        self.send_json(200, {
+            "summary": summary,
+            "byStatus": [dict(row) for row in by_status],
+            "byDepartment": [dict(row) for row in by_department],
         })
 
     def get_employee(self, employee_id):
@@ -619,7 +705,7 @@ class HRISHandler(SimpleHTTPRequestHandler):
             connection = connect_database()
             try:
                 row = connection.execute(
-                    "SELECT employee_id AS id, full_name AS name, email, department, position, status "
+                    "SELECT employee_id AS id, full_name AS name, email, department, position, status, updated_at "
                     "FROM employees WHERE employee_id = ?",
                     (employee_id,),
                 ).fetchone()

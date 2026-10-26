@@ -124,6 +124,51 @@ class EmployeeApiTests(unittest.TestCase):
         self.assertEqual(status, 401)
         self.assertIn("Sign in", payload["error"])
 
+    def test_dashboard_summary_requires_authentication(self):
+        status, payload = self.request("/api/dashboard/summary")
+        self.assertEqual(status, 401)
+        self.assertIn("Sign in", payload["error"])
+
+    def test_hr_admin_can_read_aggregated_dashboard_summary(self):
+        self.login("hr.demo")
+        status, payload = self.request("/api/dashboard/summary")
+        self.assertEqual(status, 200)
+        self.assertIn("summary", payload)
+        self.assertIn("byDepartment", payload)
+        self.assertIn("byStatus", payload)
+        self.assertNotIn("employees", payload)
+        self.assertNotIn("email", payload)
+        with test_database_connection() as connection:
+            expected_total = connection.execute(
+                "SELECT COUNT(*) FROM employees"
+            ).fetchone()[0]
+            expected_departments = connection.execute(
+                "SELECT department, COUNT(*) AS total FROM employees "
+                "GROUP BY department ORDER BY total DESC, LOWER(department)"
+            ).fetchall()
+            expected_status = connection.execute(
+                "SELECT status, COUNT(*) AS total FROM employees GROUP BY status ORDER BY status"
+            ).fetchall()
+        self.assertEqual(payload["summary"]["total"], expected_total)
+        now = hris_server.datetime.now(hris_server.timezone.utc)
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        next_month = (
+            month_start.replace(year=month_start.year + 1, month=1)
+            if month_start.month == 12
+            else month_start.replace(month=month_start.month + 1)
+        )
+        with test_database_connection() as connection:
+            expected_new_this_month = connection.execute(
+                "SELECT COUNT(*) FROM employees WHERE created_at >= ? AND created_at < ?",
+                (month_start.isoformat(), next_month.isoformat()),
+            ).fetchone()[0]
+        self.assertEqual(payload["summary"]["new_this_month"], expected_new_this_month)
+        self.assertEqual(
+            payload["byDepartment"],
+            [dict(row) for row in expected_departments],
+        )
+        self.assertEqual(payload["byStatus"], [dict(row) for row in expected_status])
+
     def test_vercel_rewritten_session_route(self):
         status, payload = self.request("/api?__vercel_route=auth/session")
         self.assertEqual(status, 200)
@@ -151,6 +196,7 @@ class EmployeeApiTests(unittest.TestCase):
         denied_operations = [
             ("GET", "/api/employees", None),
             ("GET", "/api/employees/SAMPLE-001", None),
+            ("GET", "/api/dashboard/summary", None),
             ("POST", "/api/employees", self.employee_payload("RBAC-TEST-900")),
             ("PUT", "/api/employees/SAMPLE-001", self.employee_payload("SAMPLE-001")),
             ("DELETE", "/api/employees/SAMPLE-001", None),
@@ -181,6 +227,8 @@ class EmployeeApiTests(unittest.TestCase):
     def test_system_admin_can_read_and_mutate_directory(self):
         self.login("system.demo")
         status, _ = self.request("/api/employees")
+        self.assertEqual(status, 200)
+        status, _ = self.request("/api/dashboard/summary")
         self.assertEqual(status, 200)
         status, _ = self.request("/api/employees/SAMPLE-001")
         self.assertEqual(status, 200)
@@ -229,16 +277,30 @@ class EmployeeApiTests(unittest.TestCase):
                 ],
             )
         status, payload = self.request(
-            "/api/employees?department=Pagination&status=active&page=2&pageSize=5"
+            "/api/employees?department=Pagination&position=Synthetic+Role&status=active"
+            "&sortBy=id&sortOrder=desc&page=2&pageSize=5"
         )
         self.assertEqual(status, 200)
         self.assertEqual(payload["total"], 13)
         self.assertEqual(payload["page"], 2)
         self.assertEqual(len(payload["employees"]), 5)
+        self.assertEqual(payload["employees"][0]["id"], "PAGE-16")
+        self.assertIn("Pagination", payload["departments"])
+        self.assertIn("Synthetic Role", payload["positions"])
+        self.assertEqual(payload["summary"]["inactive"], 15)
+
+        status, payload = self.request("/api/employees?sortBy=invalid")
+        self.assertEqual(status, 400)
+
+        status, payload = self.request("/api/employees?position=Missing+Role")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["total"], 0)
 
     def test_hr_admin_can_create_search_update_and_delete_with_audit(self):
         user = self.login("hr.demo")
         self.assertEqual(user["role"], "hr_admin")
+        status, dashboard_before = self.request("/api/dashboard/summary")
+        self.assertEqual(status, 200)
 
         status, payload = self.request(
             "/api/employees", method="POST", payload=self.employee_payload()
@@ -250,19 +312,49 @@ class EmployeeApiTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(len(payload["employees"]), 1)
         self.assertEqual(payload["employees"][0]["id"], "SAMPLE-900")
+        original_updated_at = payload["employees"][0]["updated_at"]
 
         updated = self.employee_payload()
         updated["name"] = "Synthetic Updated Employee"
+        updated["department"] = "New Department"
         updated["status"] = "inactive"
+        updated["updated_at"] = original_updated_at
         status, payload = self.request(
             "/api/employees/SAMPLE-900", method="PUT", payload=updated
         )
         self.assertEqual(status, 200)
         self.assertEqual(payload["employee"]["status"], "inactive")
+        status, dashboard = self.request("/api/dashboard/summary")
+        self.assertEqual(status, 200)
+        self.assertEqual(
+            dashboard["summary"]["total"],
+            dashboard_before["summary"]["total"] + 1,
+        )
+        self.assertEqual(
+            next(item["total"] for item in dashboard["byStatus"] if item["status"] == "inactive"),
+            next(
+                item["total"]
+                for item in dashboard_before["byStatus"]
+                if item["status"] == "inactive"
+            ) + 1,
+        )
+        self.assertEqual(
+            next(item["total"] for item in dashboard["byDepartment"] if item["department"] == "New Department"),
+            1,
+        )
 
         status, payload = self.request("/api/employees?status=inactive&search=Updated")
         self.assertEqual(status, 200)
         self.assertEqual(payload["employees"][0]["id"], "SAMPLE-900")
+        self.assertEqual(payload["summary"]["total"], dashboard["summary"]["total"])
+        self.assertEqual(payload["summary"]["inactive"], dashboard["summary"]["inactive"])
+        stale_update = self.employee_payload()
+        stale_update["updated_at"] = original_updated_at
+        status, payload = self.request(
+            "/api/employees/SAMPLE-900", method="PUT", payload=stale_update
+        )
+        self.assertEqual(status, 409)
+        self.assertIn("changed", payload["error"])
 
         status, payload = self.request("/api/employees/SAMPLE-900", method="DELETE")
         self.assertEqual(status, 200)

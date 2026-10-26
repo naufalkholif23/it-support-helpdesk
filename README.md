@@ -21,33 +21,38 @@ Set `HRIS_PORT` to change the local port. Set `HRIS_DATABASE_PATH` to change the
 
 The Employee Directory preserves the existing Suryanesia shell, colors, typography, sidebar, and responsive layout. It provides:
 
-- API-backed search, department and active-status filters, and pagination.
-- Employee detail view and validated add/edit forms.
-- Employee deletion with a confirmation prompt.
+- API-backed search by employee name, ID, email, or position; department, position, and status filters; and pagination.
+- Sortable employee, ID, department, position, and status columns.
+- Employee detail view and validated add/edit forms with conflict detection.
+- Confirmed active/inactive status changes that retain employee history.
+- Permanent record deletion remains a separate, explicitly confirmed action.
 - Loading, empty, and error states.
 - Server-side sessions, CSRF checks, role authorization, and an audit trail for create/update/delete.
 - Synthetic local seed users and employee records only.
 
 Directory access is currently restricted to HR administrator and system administrator roles. Employee, manager, and payroll administrator roles are denied access. Manager/team-level data scoping and employee self-service are not implemented.
 
+The Home dashboard uses an aggregate-only endpoint for employee totals, active/inactive status, department counts, and employee records created in the current UTC month; access follows the same HR administrator and system administrator policy. The monthly figure is a record-creation date, not a hire date: the employee schema does not store join dates, probation, employment type, or contract dates, so the Employee page does not present those as employee metrics. Attendance, leave, payroll, task, location, and other employee lifecycle sections remain unavailable because those data models and workflows are not implemented.
+
 ## Employee Hub navigation
 
 The main sidebar groups Home, Employee Profile, Employees, Recruitment, Time, Finance, Payroll, Productivity, Company, Applications, Integrations, and Settings. The previously available Employee Hub and Helpdesk links remain grouped below them. Sidebar groups use a single expanded submenu, and route-backed pages use URL fragments (for example, `#employees` or `#attendance`) so a page can be bookmarked or reopened directly.
 
-Only Home, Employee Directory, and the existing Helpdesk views have their existing content. Other HRIS routes intentionally show a localized placeholder; they do not imply that the corresponding HR process or integration is implemented. On mobile, use the header menu button to open the sidebar and select a link to close it.
+The Home dashboard shows authorized employee aggregates and honest unavailable states for unimplemented modules. The Employee Directory and existing Helpdesk views provide their existing functionality. Other HRIS routes intentionally show a localized placeholder; they do not imply that the corresponding HR process or integration is implemented. On mobile, use the header menu button to open the sidebar and select a link to close it.
 
 ## API
 
 - `GET /api/auth/session`
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
-- `GET /api/employees?search=&department=&status=&page=&pageSize=`
+- `GET /api/dashboard/summary` (HR and system administrators only; aggregate employee counts)
+- `GET /api/employees?search=&department=&position=&status=&sortBy=&sortOrder=&page=&pageSize=`
 - `GET /api/employees/{employeeId}`
 - `POST /api/employees`
 - `PUT /api/employees/{employeeId}`
 - `DELETE /api/employees/{employeeId}`
 
-The API validates employee IDs, email, required fields, status, and unique IDs/emails. Session tokens are stored hashed in the database; passwords use PBKDF2 hashes.
+The API validates employee IDs, email, required fields, status, sort fields, and unique IDs/emails. Employee list/detail responses include the record update timestamp used for optimistic edit conflict detection. Session tokens are stored hashed in the database; passwords use PBKDF2 hashes.
 
 ## Vercel and managed PostgreSQL
 

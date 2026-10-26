@@ -151,6 +151,10 @@
             background: #def7e4;
             color: #00783d;
         }
+
+        .sidebar-submenu {
+            transition: max-height 0.25s ease, opacity 0.2s ease;
+        }
     </style>
 </head>
 <body class="text-gray-800 h-screen flex overflow-hidden selection:bg-surya-green selection:text-white">
@@ -162,50 +166,8 @@
             <img src="logo-green.png" alt="Suryanesia Logo" class="h-10 object-contain">
         </div>
         
-        <div class="px-4 py-6 overflow-y-auto flex-1">
-            <p class="text-xs text-gray-400 font-bold uppercase tracking-widest mb-4 px-3" id="txt-main-menu">Main Menu</p>
-            <nav class="space-y-1.5" id="sidebar-nav">
-                <button onclick="navigate('home')" id="nav-home" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-home w-5 text-center text-lg"></i><span id="txt-nav-home">Home</span>
-                </button>
-                <button onclick="navigate('employees')" id="nav-employees" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-users w-5 text-center text-lg"></i><span id="txt-nav-employees">Employee Directory</span>
-                </button>
-                <button onclick="openAiAssistant()" id="nav-ai-assistant" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-robot w-5 text-center text-lg"></i><span id="txt-nav-ai">AI Assistant</span>
-                </button>
-                <button onclick="openTicketForm()" id="nav-create-ticket" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-ticket-alt w-5 text-center text-lg"></i><span id="txt-nav-create">Create Ticket</span>
-                </button>
-                <button onclick="openCheckTicket()" id="nav-check-ticket" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-search w-5 text-center text-lg"></i><span id="txt-nav-check">Check Ticket</span>
-                </button>
-                <button onclick="navigate('knowledge-base')" id="nav-knowledge-base" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-book-open w-5 text-center text-lg"></i><span id="txt-nav-knowledge">Knowledge Base</span>
-                </button>
-                <button onclick="navigate('sop')" id="nav-sop" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-book w-5 text-center text-lg"></i><span id="txt-nav-sop">SOP & Guidelines</span>
-                </button>
-                <button onclick="navigate('policies')" id="nav-policies" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-gavel w-5 text-center text-lg"></i><span id="txt-nav-policies">Policies</span>
-                </button>
-                <button onclick="navigate('announcements')" id="nav-announcements" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-bullhorn w-5 text-center text-lg"></i><span id="txt-nav-announcements">Announcements</span>
-                </button>
-                <button onclick="navigate('profile')" id="nav-profile" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-user-circle w-5 text-center text-lg"></i><span id="txt-nav-profile">Profile</span>
-                </button>
-                <button onclick="navigate('links')" id="nav-links" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-link w-5 text-center text-lg"></i><span id="txt-nav-links-label">Quick Links</span>
-                </button>
-                <button onclick="navigate('corner')" id="nav-corner" class="nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all">
-                    <i class="fas fa-user-circle w-5 text-center text-lg"></i><span id="txt-nav-corner-label">Employee Corner</span>
-                </button>
-                <div class="my-3 border-t border-gray-100" role="separator" aria-label="Admin access"></div>
-                <a href="admin-login.html" id="nav-admin-access" class="nav-btn flex w-full items-center space-x-3 rounded-xl px-3 py-3 text-left font-semibold text-gray-600 transition-all hover:bg-surya-lightgreen hover:text-surya-green">
-                    <i class="fas fa-lock w-5 text-center text-lg"></i><span id="txt-nav-admin">🔐 Admin Access</span>
-                </a>
-            </nav>
+        <div class="flex-1 overflow-y-auto px-3 py-5">
+            <nav class="space-y-1" id="sidebar-nav" aria-label="Main navigation"></nav>
         </div>
 
     </aside>
@@ -216,7 +178,7 @@
         <header class="bg-white border-b border-gray-200/60 z-10 px-4 md:px-8 h-20 flex items-center justify-between sticky top-0 shrink-0 shadow-sm backdrop-blur-md bg-white/90">
             <!-- Mobile Menu Toggle -->
             <div class="flex items-center space-x-4 md:hidden">
-                <button type="button" onclick="toggleSidebar(true)" class="rounded-lg p-2 text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green" aria-label="Buka menu">
+                <button id="sidebar-toggle" type="button" onclick="toggleSidebar(true)" class="rounded-lg p-2 text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green" aria-label="Buka menu" aria-controls="sidebar" aria-expanded="false">
                     <i class="fas fa-bars text-xl"></i>
                 </button>
                 <img src="logo-green.png" alt="Suryanesia Logo" class="h-8 object-contain">
@@ -455,6 +417,164 @@
                 aiCreateTicket: "Buat Tiket Dukungan"
             }
         };
+
+        const sidebarMenu = [
+            { type: 'item', key: 'home', route: 'home', icon: 'fa-house' },
+            { type: 'item', key: 'employee-profile', route: 'employee-profile', icon: 'fa-id-card' },
+            {
+                type: 'group', key: 'employees', icon: 'fa-users', children: [
+                    { key: 'employee-directory', route: 'employees', icon: 'fa-address-book' },
+                    { key: 'manpower-planning', route: 'manpower-planning', icon: 'fa-chart-line' },
+                    { key: 'new-joiner-submission', route: 'new-joiner-submission', icon: 'fa-user-plus' },
+                    { key: 'onboarding', route: 'onboarding', icon: 'fa-person-circle-check' },
+                    { key: 'offboarding', route: 'offboarding', icon: 'fa-person-walking-arrow-right' },
+                    { key: 'reprimand', route: 'reprimand', icon: 'fa-triangle-exclamation' }
+                ]
+            },
+            {
+                type: 'group', key: 'recruitment', icon: 'fa-user-tie', children: [
+                    { key: 'recruitment-dashboard', route: 'recruitment-dashboard', icon: 'fa-chart-pie' },
+                    { key: 'job-vacancies', route: 'job-vacancies', icon: 'fa-briefcase' },
+                    { key: 'candidates', route: 'candidates', icon: 'fa-users' },
+                    { key: 'recruitment-pipeline', route: 'recruitment-pipeline', icon: 'fa-diagram-project' }
+                ]
+            },
+            {
+                type: 'group', key: 'time', icon: 'fa-clock', children: [
+                    { key: 'attendance', route: 'attendance', icon: 'fa-calendar-check' },
+                    { key: 'leave-management', route: 'leave-management', icon: 'fa-calendar-minus' },
+                    { key: 'overtime', route: 'overtime', icon: 'fa-business-time' },
+                    { key: 'work-schedule', route: 'work-schedule', icon: 'fa-calendar-days' }
+                ]
+            },
+            {
+                type: 'group', key: 'finance', icon: 'fa-wallet', children: [
+                    { key: 'reimbursement', route: 'reimbursement', icon: 'fa-receipt' },
+                    { key: 'claims', route: 'claims', icon: 'fa-file-invoice-dollar' },
+                    { key: 'finance-overview', route: 'finance-overview', icon: 'fa-chart-column' }
+                ]
+            },
+            {
+                type: 'group', key: 'payroll', icon: 'fa-money-check-dollar', children: [
+                    { key: 'payroll-overview', route: 'payroll-overview', icon: 'fa-chart-line' },
+                    { key: 'payroll-processing', route: 'payroll-processing', icon: 'fa-calculator' },
+                    { key: 'payslips', route: 'payslips', icon: 'fa-file-invoice' }
+                ]
+            },
+            {
+                type: 'group', key: 'productivity', icon: 'fa-bolt', children: [
+                    { key: 'task-overview', route: 'task-overview', icon: 'fa-list-check' },
+                    { key: 'performance', route: 'performance', icon: 'fa-chart-simple' },
+                    { key: 'goals-reviews', route: 'goals-reviews', icon: 'fa-bullseye' }
+                ]
+            },
+            {
+                type: 'group', key: 'company', icon: 'fa-building', children: [
+                    { key: 'company-overview', route: 'company-overview', icon: 'fa-city' },
+                    { key: 'departments', route: 'departments', icon: 'fa-sitemap' },
+                    { key: 'organization-structure', route: 'organization-structure', icon: 'fa-diagram-predecessor' }
+                ]
+            },
+            { type: 'divider' },
+            { type: 'item', key: 'applications', route: 'applications', icon: 'fa-table-cells' },
+            { type: 'item', key: 'integrations', route: 'integrations', icon: 'fa-plug' },
+            {
+                type: 'group', key: 'settings', icon: 'fa-gear', children: [
+                    { key: 'general-settings', route: 'general-settings', icon: 'fa-sliders' },
+                    { key: 'user-management', route: 'user-management', icon: 'fa-user-gear' },
+                    { key: 'roles-permissions', route: 'roles-permissions', icon: 'fa-shield-halved' }
+                ]
+            },
+            { type: 'divider', key: 'helpdesk-divider' },
+            { type: 'section', key: 'helpdesk' },
+            { type: 'action', key: 'ai-assistant', icon: 'fa-robot', action: 'openAiAssistant' },
+            { type: 'action', key: 'create-ticket', icon: 'fa-ticket' , action: 'openTicketForm' },
+            { type: 'action', key: 'check-ticket', icon: 'fa-magnifying-glass', action: 'openCheckTicket' },
+            { type: 'item', key: 'my-tickets', route: 'my-tickets', icon: 'fa-list-check' },
+            { type: 'item', key: 'my-assets', route: 'assets', icon: 'fa-laptop' },
+            { type: 'item', key: 'knowledge-base', route: 'knowledge-base', icon: 'fa-book-open' },
+            { type: 'item', key: 'request-center', route: 'request', icon: 'fa-concierge-bell' },
+            { type: 'item', key: 'sop-guidelines', route: 'sop', icon: 'fa-book' },
+            { type: 'item', key: 'policies', route: 'policies', icon: 'fa-scale-balanced' },
+            { type: 'item', key: 'announcements', route: 'announcements', icon: 'fa-bullhorn' },
+            { type: 'item', key: 'quick-links', route: 'links', icon: 'fa-link' },
+            { type: 'item', key: 'employee-corner', route: 'corner', icon: 'fa-seedling' },
+            { type: 'link', key: 'admin-access', href: 'admin-login.html', icon: 'fa-lock' }
+        ];
+
+        const sidebarLabels = {
+            en: {
+                home: 'Home', 'employee-profile': 'Employee Profile', employees: 'Employees',
+                'employee-directory': 'Employee Directory', 'manpower-planning': 'Manpower Planning',
+                'new-joiner-submission': 'New Joiner Submission', onboarding: 'Onboarding',
+                offboarding: 'Offboarding', reprimand: 'Reprimand', recruitment: 'Recruitment',
+                'recruitment-dashboard': 'Recruitment Dashboard', 'job-vacancies': 'Job Vacancies',
+                candidates: 'Candidates', 'recruitment-pipeline': 'Recruitment Pipeline',
+                time: 'Time', attendance: 'Attendance', 'leave-management': 'Leave Management',
+                overtime: 'Overtime', 'work-schedule': 'Work Schedule', finance: 'Finance',
+                reimbursement: 'Reimbursement', claims: 'Claims', 'finance-overview': 'Finance Overview',
+                payroll: 'Payroll', 'payroll-overview': 'Payroll Overview',
+                'payroll-processing': 'Payroll Processing', payslips: 'Payslips',
+                productivity: 'Productivity', 'task-overview': 'Task Overview',
+                performance: 'Performance', 'goals-reviews': 'Goals and Reviews',
+                company: 'Company', 'company-overview': 'Company Overview',
+                departments: 'Departments', 'organization-structure': 'Organization Structure',
+                applications: 'Applications', integrations: 'Integrations', settings: 'Settings',
+                'general-settings': 'General Settings', 'user-management': 'User Management',
+                'roles-permissions': 'Roles and Permissions', helpdesk: 'Employee Hub',
+                'ai-assistant': 'AI Assistant', 'create-ticket': 'Create Ticket',
+                'check-ticket': 'Check Ticket', 'my-tickets': 'My Tickets', 'my-assets': 'My Assets',
+                'knowledge-base': 'Knowledge Base', 'request-center': 'Request Center',
+                'sop-guidelines': 'SOP & Guidelines', policies: 'Policies',
+                announcements: 'Announcements', 'quick-links': 'Quick Links',
+                'employee-corner': 'Employee Corner', 'admin-access': 'Admin Access',
+                'main-menu': 'Main Menu'
+            },
+            id: {
+                home: 'Beranda', 'employee-profile': 'Profil Karyawan', employees: 'Karyawan',
+                'employee-directory': 'Direktori Karyawan', 'manpower-planning': 'Perencanaan Tenaga Kerja',
+                'new-joiner-submission': 'Pengajuan Karyawan Baru', onboarding: 'Orientasi Karyawan',
+                offboarding: 'Pengakhiran Kerja', reprimand: 'Teguran', recruitment: 'Rekrutmen',
+                'recruitment-dashboard': 'Dasbor Rekrutmen', 'job-vacancies': 'Lowongan Kerja',
+                candidates: 'Kandidat', 'recruitment-pipeline': 'Tahapan Rekrutmen',
+                time: 'Waktu', attendance: 'Kehadiran', 'leave-management': 'Manajemen Cuti',
+                overtime: 'Lembur', 'work-schedule': 'Jadwal Kerja', finance: 'Keuangan',
+                reimbursement: 'Penggantian Biaya', claims: 'Klaim', 'finance-overview': 'Ringkasan Keuangan',
+                payroll: 'Penggajian', 'payroll-overview': 'Ringkasan Penggajian',
+                'payroll-processing': 'Proses Penggajian', payslips: 'Slip Gaji',
+                productivity: 'Produktivitas', 'task-overview': 'Ringkasan Tugas',
+                performance: 'Kinerja', 'goals-reviews': 'Sasaran dan Evaluasi',
+                company: 'Perusahaan', 'company-overview': 'Ringkasan Perusahaan',
+                departments: 'Departemen', 'organization-structure': 'Struktur Organisasi',
+                applications: 'Aplikasi', integrations: 'Integrasi', settings: 'Pengaturan',
+                'general-settings': 'Pengaturan Umum', 'user-management': 'Manajemen Pengguna',
+                'roles-permissions': 'Peran dan Izin', helpdesk: 'Employee Hub',
+                'ai-assistant': 'Asisten AI', 'create-ticket': 'Buat Tiket',
+                'check-ticket': 'Cek Tiket', 'my-tickets': 'Tiket Saya', 'my-assets': 'Aset Saya',
+                'knowledge-base': 'Basis Pengetahuan', 'request-center': 'Pusat Permintaan',
+                'sop-guidelines': 'SOP dan Panduan', policies: 'Kebijakan',
+                announcements: 'Pengumuman', 'quick-links': 'Tautan Cepat',
+                'employee-corner': 'Pojok Karyawan', 'admin-access': 'Akses Admin',
+                'main-menu': 'Menu Utama'
+            }
+        };
+
+        const placeholderRoutes = new Set(
+            sidebarMenu.flatMap((item) => item.children
+                ? item.children.map((child) => child.route)
+                : item.route ? [item.route] : [])
+        );
+        const routeParentKeys = Object.fromEntries(
+            sidebarMenu.flatMap((item) => item.children
+                ? item.children.map((child) => [child.route, item.key])
+                : item.route ? [[item.route, item.key]] : [])
+        );
+        const placeholderDescriptions = {
+            en: 'This page is a navigation placeholder. Its data, workflow, and permissions will be implemented in a later phase.',
+            id: 'Halaman ini hanya kerangka navigasi. Data, alur kerja, dan izinnya akan dikembangkan pada tahap berikutnya.'
+        };
+        let expandedSidebarGroup = null;
+        let renderRequestId = 0;
 
         const views = {
             en: {
@@ -2209,6 +2329,130 @@
             return false;
         }
 
+        function navigationLabel(key) {
+            return sidebarLabels[currentLang][key] || key;
+        }
+
+        function getMenuItemForRoute(route) {
+            for (const item of sidebarMenu) {
+                if (item.route === route) return item;
+                const child = item.children?.find((entry) => entry.route === route);
+                if (child) return child;
+            }
+            return null;
+        }
+
+        function isKnownRoute(route) {
+            return route === 'employees' ||
+                placeholderRoutes.has(route) ||
+                Object.prototype.hasOwnProperty.call(views.en, route);
+        }
+
+        function renderSidebarItem(item, isSubmenuItem = false) {
+            const active = item.route === currentViewId;
+            const classes = active
+                ? 'flex w-full items-center gap-3 rounded-lg bg-surya-lightgreen px-3 py-2.5 text-left text-sm font-bold text-surya-green ring-1 ring-surya-green/15'
+                : 'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-gray-600 transition-colors hover:bg-surya-lightgreen hover:text-surya-green focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surya-green';
+            const indent = isSubmenuItem ? 'ml-3 w-[calc(100%-0.75rem)] border-l border-gray-200 pl-3' : '';
+            const icon = `<i class="fas ${item.icon} w-5 shrink-0 text-center text-base" aria-hidden="true"></i>`;
+            const label = `<span class="min-w-0 flex-1">${navigationLabel(item.key)}</span>`;
+            const current = active ? ' aria-current="page"' : '';
+
+            if (item.type === 'action') {
+                return `<button type="button" class="sidebar-item ${classes} ${indent}" onclick="toggleSidebar(false); ${item.action}()">${icon}${label}</button>`;
+            }
+            if (item.type === 'link') {
+                return `<a href="${item.href}" class="sidebar-item ${classes} ${indent}">${icon}${label}</a>`;
+            }
+            return `<button type="button" class="sidebar-item ${classes} ${indent}" data-route="${item.route}" onclick="navigate('${item.route}')"${current}>${icon}${label}</button>`;
+        }
+
+        function renderSidebarNavigation() {
+            const nav = document.getElementById('sidebar-nav');
+            if (!nav) return;
+
+            const menu = [];
+            menu.push(`<p class="px-3 pb-3 text-xs font-bold uppercase tracking-widest text-gray-400">${navigationLabel('main-menu')}</p>`);
+            for (const item of sidebarMenu) {
+                if (item.type === 'divider') {
+                    if (item.key === 'helpdesk-divider') {
+                        menu.push('<div class="my-4 border-t border-gray-100" role="separator"></div>');
+                    } else {
+                        menu.push('<div class="my-3 border-t border-gray-100" role="separator"></div>');
+                    }
+                    continue;
+                }
+                if (item.type === 'section') {
+                    menu.push(`<p class="px-3 pb-2 pt-1 text-xs font-bold uppercase tracking-widest text-gray-400">${navigationLabel(item.key)}</p>`);
+                    continue;
+                }
+                if (item.type !== 'group') {
+                    menu.push(renderSidebarItem(item));
+                    continue;
+                }
+
+                const groupIsCurrent = item.children.some((child) => child.route === currentViewId);
+                const isOpen = expandedSidebarGroup === item.key;
+                const submenuId = `sidebar-submenu-${item.key}`;
+                const groupClasses = groupIsCurrent
+                    ? 'text-surya-green'
+                    : 'text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green';
+                menu.push(`
+                    <div class="space-y-1">
+                        <button type="button" class="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition-colors ${groupClasses} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surya-green"
+                            aria-expanded="${isOpen}" aria-controls="${submenuId}" onclick="toggleSidebarGroup('${item.key}')">
+                            <i class="fas ${item.icon} w-5 shrink-0 text-center text-base" aria-hidden="true"></i>
+                            <span class="min-w-0 flex-1">${navigationLabel(item.key)}</span>
+                            <i class="fas fa-chevron-down text-xs transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}" aria-hidden="true"></i>
+                        </button>
+                        <div id="${submenuId}" class="sidebar-submenu space-y-1 overflow-hidden pl-1 ${isOpen ? 'max-h-[32rem] opacity-100' : 'max-h-0 opacity-0'}" aria-hidden="${!isOpen}" ${isOpen ? '' : 'inert'}>
+                            ${item.children.map((child) => renderSidebarItem(child, true)).join('')}
+                        </div>
+                    </div>
+                `);
+            }
+            nav.innerHTML = menu.join('');
+        }
+
+        function toggleSidebarGroup(groupKey) {
+            expandedSidebarGroup = expandedSidebarGroup === groupKey ? null : groupKey;
+            renderSidebarNavigation();
+            document.getElementById('sidebar-nav')
+                ?.querySelector(`[aria-controls="sidebar-submenu-${groupKey}"]`)
+                ?.focus();
+        }
+
+        function placeholderPage(viewId) {
+            const item = getMenuItemForRoute(viewId);
+            const title = item ? navigationLabel(item.key) : viewId;
+            const parentKey = routeParentKeys[viewId];
+            const parent = parentKey ? navigationLabel(parentKey) : '';
+            const homeLabel = navigationLabel('home');
+            const description = placeholderDescriptions[currentLang];
+            return `
+                <div class="fade-in mx-auto max-w-5xl p-4 pb-12 md:p-8">
+                    <nav class="mb-6 flex flex-wrap items-center gap-2 text-sm text-gray-500" aria-label="${currentLang === 'id' ? 'Jejak navigasi' : 'Breadcrumb'}">
+                        <button type="button" class="font-semibold hover:text-surya-green" onclick="navigate('home')">${homeLabel}</button>
+                        ${parent && parent !== title ? `<i class="fas fa-chevron-right text-[10px] text-gray-300" aria-hidden="true"></i><span>${parent}</span>` : ''}
+                        <i class="fas fa-chevron-right text-[10px] text-gray-300" aria-hidden="true"></i>
+                        <span class="font-semibold text-gray-700" aria-current="page">${title}</span>
+                    </nav>
+                    <section class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm sm:p-9">
+                        <div class="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-surya-lightgreen text-xl text-surya-green">
+                            <i class="fas ${item?.icon || 'fa-layer-group'}" aria-hidden="true"></i>
+                        </div>
+                        <p class="text-xs font-bold uppercase tracking-widest text-surya-green">${parent || 'Suryanesia Employee Hub'}</p>
+                        <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-gray-900 sm:text-3xl">${title}</h1>
+                        <p class="mt-3 max-w-2xl leading-relaxed text-gray-600">${description}</p>
+                        <div class="mt-7 inline-flex items-start gap-3 rounded-xl border border-surya-yellow/70 bg-surya-lightyellow px-4 py-3 text-sm text-gray-700" role="status">
+                            <i class="fas fa-circle-info mt-0.5 text-surya-green" aria-hidden="true"></i>
+                            <span>${currentLang === 'id' ? 'Belum ada data atau proses HR yang terhubung pada halaman ini.' : 'No HR data or workflow is connected to this page yet.'}</span>
+                        </div>
+                    </section>
+                </div>
+            `;
+        }
+
         function setLanguage(lang) {
             if (currentLang === lang) return;
             currentLang = lang;
@@ -2283,8 +2527,16 @@
             renderView(currentViewId, true);
         }
 
-        function navigate(viewId) {
+        function navigate(viewId, fromHistory = false) {
+            if (!isKnownRoute(viewId)) viewId = 'home';
             currentViewId = viewId;
+            if (!fromHistory && window.location.hash !== `#${viewId}`) {
+                window.history.pushState({ viewId }, '', `#${viewId}`);
+            }
+            const parentKey = routeParentKeys[viewId];
+            expandedSidebarGroup = sidebarMenu.some((item) => item.key === parentKey && item.type === 'group')
+                ? parentKey
+                : null;
             toggleSidebar(false);
             renderView(viewId, false);
         }
@@ -2297,38 +2549,41 @@
             sidebar.classList.toggle('-translate-x-full', !isOpen);
             sidebar.classList.toggle('translate-x-0', isOpen);
             backdrop.classList.toggle('hidden', !isOpen);
+            const menuToggle = document.getElementById('sidebar-toggle');
+            if (menuToggle) menuToggle.setAttribute('aria-expanded', String(isOpen));
         }
 
         function renderView(viewId, isLangSwitch) {
             const contentArea = document.getElementById('content-area');
+            if (!contentArea) return;
+            const requestId = ++renderRequestId;
             
             // Simple fade out
             contentArea.style.opacity = '0';
             
             setTimeout(() => {
+                if (requestId !== renderRequestId) return;
                 // Inject HTML using current view and language
                 contentArea.innerHTML = viewId === 'employees'
                     ? employeeDirectoryView()
-                    : views[currentLang][viewId] || views[currentLang]['home'];
+                    : placeholderRoutes.has(viewId) && !views[currentLang][viewId]
+                        ? placeholderPage(viewId)
+                        : views[currentLang][viewId] || views[currentLang]['home'];
                 // Reset scroll unless we are just toggling languages
                 if (!isLangSwitch) contentArea.scrollTop = 0; 
                 // Fade in
                 contentArea.style.opacity = '1';
-
-                // Update Sidebar Active States
-                const navIds = ['nav-home', 'nav-employees', 'nav-create-ticket', 'nav-check-ticket', 'nav-ai-assistant', 'nav-knowledge-base', 'nav-sop', 'nav-policies', 'nav-announcements', 'nav-links', 'nav-corner'];
-                navIds.forEach(id => {
-                    const btn = document.getElementById(id);
-                    if(btn) {
-                        btn.className = 'nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green font-semibold transition-all';
-                        if(id === 'nav-' + viewId) {
-                            btn.className = 'nav-btn w-full text-left flex items-center space-x-3 px-3 py-3 rounded-xl text-surya-green bg-surya-lightgreen font-bold transition-all shadow-sm ring-1 ring-surya-green/20';
-                        }
-                    }
-                });
+                renderSidebarNavigation();
                 if (viewId === 'employees') initializeEmployeeDirectory();
             }, 150);
         }
+
+        window.addEventListener('popstate', () => {
+            const viewId = window.location.hash.slice(1);
+            const nextViewId = isKnownRoute(viewId) ? viewId : 'home';
+            if (viewId !== nextViewId) window.history.replaceState({ viewId: nextViewId }, '', `#${nextViewId}`);
+            navigate(nextViewId, true);
+        });
 
         // Global Toast Notification Logic
         function showToast(message) {
@@ -2436,7 +2691,11 @@
             initializeData();
             initializeSearchBehavior();
             setLanguage('en');
-            navigate('home');
+            const initialRoute = window.location.hash.slice(1);
+            navigate(isKnownRoute(initialRoute) ? initialRoute : 'home', true);
+            if (!isKnownRoute(initialRoute)) {
+                window.history.replaceState({ viewId: 'home' }, '', '#home');
+            }
         };
 
         window.addEventListener('keydown', function (event) {

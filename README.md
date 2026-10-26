@@ -30,6 +30,12 @@ The Employee Directory preserves the existing Suryanesia shell, colors, typograp
 
 Directory access is currently restricted to HR administrator and system administrator roles. Employee, manager, and payroll administrator roles are denied access. Manager/team-level data scoping and employee self-service are not implemented.
 
+## Employee Hub navigation
+
+The main sidebar groups Home, Employee Profile, Employees, Recruitment, Time, Finance, Payroll, Productivity, Company, Applications, Integrations, and Settings. The previously available Employee Hub and Helpdesk links remain grouped below them. Sidebar groups use a single expanded submenu, and route-backed pages use URL fragments (for example, `#employees` or `#attendance`) so a page can be bookmarked or reopened directly.
+
+Only Home, Employee Directory, and the existing Helpdesk views have their existing content. Other HRIS routes intentionally show a localized placeholder; they do not imply that the corresponding HR process or integration is implemented. On mobile, use the header menu button to open the sidebar and select a link to close it.
+
 ## API
 
 - `GET /api/auth/session`

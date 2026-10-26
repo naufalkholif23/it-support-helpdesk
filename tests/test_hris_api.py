@@ -11,6 +11,8 @@ import urllib.error
 import urllib.request
 
 import hris_server
+from api.index import handler as VercelApiHandler
+from api.index import routed_request_path
 
 
 @contextlib.contextmanager
@@ -51,7 +53,7 @@ class EmployeeApiTests(unittest.TestCase):
         hris_server.PORT = port
         with contextlib.redirect_stdout(io.StringIO()):
             hris_server.initialize_database()
-        cls.server = hris_server.ThreadingHTTPServer(("127.0.0.1", port), hris_server.HRISHandler)
+        cls.server = hris_server.ThreadingHTTPServer(("127.0.0.1", port), VercelApiHandler)
         cls.server.daemon_threads = False
         cls.server_thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.server_thread.start()
@@ -121,6 +123,11 @@ class EmployeeApiTests(unittest.TestCase):
         status, payload = self.request("/api/employees")
         self.assertEqual(status, 401)
         self.assertIn("Sign in", payload["error"])
+
+    def test_vercel_rewritten_session_route(self):
+        status, payload = self.request("/api?__vercel_route=auth/session")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload, {"authenticated": False})
 
     def test_payroll_role_cannot_read_employee_directory(self):
         self.login("payroll.demo")
@@ -354,6 +361,25 @@ class EmployeeApiTests(unittest.TestCase):
                 os.environ.pop("VERCEL", None)
             else:
                 os.environ["VERCEL"] = original_vercel
+
+    def test_vercel_rewrite_restores_api_path_and_forwards_query(self):
+        cases = (
+            (
+                "/api?__vercel_route=auth/session",
+                "/api/auth/session",
+            ),
+            (
+                "/api?__vercel_route=employees&search=sample+name&page=2&pageSize=10",
+                "/api/employees?search=sample+name&page=2&pageSize=10",
+            ),
+            (
+                "/api?__vercel_route=employees%2FSAMPLE-001",
+                "/api/employees/SAMPLE-001",
+            ),
+        )
+        for rewritten_path, expected_path in cases:
+            with self.subTest(rewritten_path=rewritten_path):
+                self.assertEqual(routed_request_path(rewritten_path), expected_path)
 
     def test_mutations_require_an_exact_configured_origin(self):
         original_allowed_origins = os.environ.get("HRIS_ALLOWED_ORIGINS")

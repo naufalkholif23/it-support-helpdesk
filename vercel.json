@@ -1,10 +1,16 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "api/**/*.py": {
+    "api/index.py": {
       "excludeFiles": "{tests/**,scripts/**,migrations/**,__pycache__/**,README.md,.gitignore,*.sqlite,*.sqlite3,*.db,*.log}"
     }
   },
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api?__vercel_route=:path*"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

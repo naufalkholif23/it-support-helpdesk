@@ -51,7 +51,7 @@ The API validates employee IDs, email, required fields, status, and unique IDs/e
 
 ## Vercel and managed PostgreSQL
 
-The repository includes a Python catch-all Function for `/api/*`, a PostgreSQL driver, and a PostgreSQL schema migration. Vercel Functions do not use the local SQLite file for durable production storage. **The application is not cleared for production HR data or public HRIS use yet.**
+The repository includes a Python Function at `api/index.py`, with a Vercel rewrite forwarding `/api/*` routes to the existing HRIS handler, a PostgreSQL driver, and a PostgreSQL schema migration. Vercel Functions do not use the local SQLite file for durable production storage. **The application is not cleared for production HR data or public HRIS use yet.**
 
 Before deploying a preview:
 

@@ -81,13 +81,16 @@ class EmployeeApiTests(unittest.TestCase):
         )
         self.csrf_token = ""
 
-    def request(self, path, method="GET", payload=None, csrf=True):
+    def request(
+        self, path, method="GET", payload=None, csrf=True, origin=None, include_origin=True
+    ):
         body = None if payload is None else json.dumps(payload).encode("utf-8")
         headers = {}
         if body is not None:
             headers["Content-Type"] = "application/json"
         if method in ("POST", "PUT", "DELETE"):
-            headers["Origin"] = self.base_url
+            if include_origin:
+                headers["Origin"] = origin or self.base_url
             if csrf and self.csrf_token:
                 headers["X-CSRF-Token"] = self.csrf_token
         request = urllib.request.Request(
@@ -569,14 +572,40 @@ class EmployeeApiTests(unittest.TestCase):
                 "/api/auth/login",
                 method="POST",
                 payload={"email": "hr.demo@example.test", "password": "test-only-password"},
+                origin="https://untrusted.example.test",
             )
             self.assertEqual(status, 403)
-
-            os.environ["HRIS_ALLOWED_ORIGINS"] = self.base_url
             status, _ = self.request(
                 "/api/auth/login",
                 method="POST",
                 payload={"email": "hr.demo@example.test", "password": "test-only-password"},
+                include_origin=False,
+            )
+            self.assertEqual(status, 403)
+
+            status, payload = self.request(
+                "/api/auth/login",
+                method="POST",
+                payload={"email": "hr.demo@example.test", "password": "test-only-password"},
+                origin="https://hub.example.test",
+            )
+            self.assertEqual(status, 200)
+            self.csrf_token = payload["csrfToken"]
+            status, session = self.request("/api/auth/session")
+            self.assertEqual(status, 200)
+            self.assertTrue(session["authenticated"])
+
+            status, _ = self.request(
+                "/api/auth/logout",
+                method="POST",
+                csrf=False,
+                origin="https://hub.example.test",
+            )
+            self.assertEqual(status, 403)
+            status, _ = self.request(
+                "/api/auth/logout",
+                method="POST",
+                origin="https://hub.example.test",
             )
             self.assertEqual(status, 200)
         finally:
@@ -584,6 +613,67 @@ class EmployeeApiTests(unittest.TestCase):
                 os.environ.pop("HRIS_ALLOWED_ORIGINS", None)
             else:
                 os.environ["HRIS_ALLOWED_ORIGINS"] = original_allowed_origins
+
+    def test_vercel_origin_allowlist_uses_deployment_and_production_domains(self):
+        original_environment = {
+            name: os.environ.get(name)
+            for name in (
+                "VERCEL_ENV",
+                "VERCEL_URL",
+                "VERCEL_PROJECT_PRODUCTION_URL",
+                "HRIS_ALLOWED_ORIGINS",
+            )
+        }
+        os.environ["VERCEL_ENV"] = "production"
+        os.environ["VERCEL_URL"] = "employee-hub-deployment.vercel.app"
+        os.environ["VERCEL_PROJECT_PRODUCTION_URL"] = "employee.suryanesia.example"
+        os.environ.pop("HRIS_ALLOWED_ORIGINS", None)
+        try:
+            status, payload = self.request(
+                "/api/auth/login",
+                method="POST",
+                payload={"email": "hr.demo@example.test", "password": "test-only-password"},
+                origin="https://employee.suryanesia.example",
+            )
+            self.assertEqual(status, 200)
+            self.assertTrue(payload["authenticated"])
+
+            status, _ = self.request(
+                "/api/auth/login",
+                method="POST",
+                payload={"email": "hr.demo@example.test", "password": "test-only-password"},
+                origin="https://employee-hub-deployment.vercel.app",
+            )
+            self.assertEqual(status, 200)
+            status, _ = self.request(
+                "/api/auth/login",
+                method="POST",
+                payload={"email": "hr.demo@example.test", "password": "test-only-password"},
+                origin="https://untrusted.example.test",
+            )
+            self.assertEqual(status, 403)
+
+            os.environ["VERCEL_ENV"] = "preview"
+            status, _ = self.request(
+                "/api/auth/login",
+                method="POST",
+                payload={"email": "hr.demo@example.test", "password": "test-only-password"},
+                origin="https://employee.suryanesia.example",
+            )
+            self.assertEqual(status, 403)
+            status, _ = self.request(
+                "/api/auth/login",
+                method="POST",
+                payload={"email": "hr.demo@example.test", "password": "test-only-password"},
+                origin="https://employee-hub-deployment.vercel.app",
+            )
+            self.assertEqual(status, 200)
+        finally:
+            for name, value in original_environment.items():
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
 
     def test_request_logs_do_not_include_search_terms_or_employee_ids(self):
         self.login("hr.demo")

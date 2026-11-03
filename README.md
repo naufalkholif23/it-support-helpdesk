@@ -72,11 +72,11 @@ Before deploying a preview:
 2. Provision a managed PostgreSQL database (for example, Neon) and use its TLS-enabled connection URL.
 3. Set `DATABASE_URL` separately for Preview and Production in Vercel. Do not commit `.env` files or put secrets in HTML or JavaScript.
 4. From a trusted machine, apply `migrations/001_core_hr.sql` and then `migrations/002_user_email_login.sql` to the intended database. Do not run schema migrations from a Function invocation. Before enabling sign-in, populate the new email field with verified work emails for existing users and confirm there are no duplicate addresses (case-insensitive).
-5. Set `HRIS_ALLOWED_ORIGINS` to the exact origin(s) for the deployment, comma-separated and without trailing slashes. Use separate, narrowly scoped values for Preview and Production; do not use `*`.
+5. Vercel deployments accept their assigned HTTPS origin from the platform-provided `VERCEL_URL`; Production also accepts the production domain from `VERCEL_PROJECT_PRODUCTION_URL`. Verify Vercel system environment variables are enabled for the project. Set `HRIS_ALLOWED_ORIGINS` to any additional exact HTTPS origin(s) that serve the app, comma-separated and without trailing slashes. Configure it separately for Preview and Production; Preview does not inherit the production domain. Do not use `*`.
 6. Create the first HR administrator interactively from the project root with `python -m scripts.create_hr_admin`. The script prompts for username, work email, and a password without echoing it; the password must be at least 16 characters.
 7. Deploy a Preview using synthetic data only, then validate login/logout, CSRF, role denials, CRUD, audit records, and session cookies before considering Production.
 
-Vercel sets `VERCEL_ENV` for Preview and Production, which makes the session cookie `Secure`. API mutations require a matching configured `Origin` and the session CSRF token. The database adapter enforces TLS and uses a short connection timeout.
+Vercel sets `VERCEL_ENV` for Preview and Production, which makes the session cookie `Secure`. Login and all API mutations require an exact allowed `Origin`; logout and other authenticated mutations also require the session CSRF token. The frontend sends same-origin API requests with the browser's origin and session credentials. The database adapter enforces TLS and uses a short connection timeout.
 
 Do not run the local SQLite initializer against PostgreSQL. Production schema changes must use reviewed migration files. Preview and Production must use separate databases, and the application currently does not automatically seed PostgreSQL with users or employee records.
 

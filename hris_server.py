@@ -786,9 +786,38 @@ class HRISHandler(SimpleHTTPRequestHandler):
             for item in os.environ.get("HRIS_ALLOWED_ORIGINS", "").split(",")
             if item.strip()
         }
-        if allowed_origins:
-            return origin in allowed_origins
-        return origin == "http://{}:{}".format(HOST, PORT)
+        is_vercel_deployment = any(
+            os.environ.get(name)
+            for name in (
+                "VERCEL",
+                "VERCEL_URL",
+                "VERCEL_PROJECT_PRODUCTION_URL",
+            )
+        )
+        if is_vercel_deployment:
+            deployment_origin = self.vercel_origin(os.environ.get("VERCEL_URL", ""))
+            if deployment_origin:
+                allowed_origins.add(deployment_origin)
+            if os.environ.get("VERCEL_ENV") == "production":
+                production_origin = self.vercel_origin(
+                    os.environ.get("VERCEL_PROJECT_PRODUCTION_URL", "")
+                )
+                if production_origin:
+                    allowed_origins.add(production_origin)
+        elif not allowed_origins:
+            allowed_origins.add("http://{}:{}".format(HOST, PORT))
+        return origin in allowed_origins
+
+    @staticmethod
+    def vercel_origin(domain):
+        domain = domain.strip().lower()
+        if (
+            not domain
+            or not re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?", domain)
+            or ".." in domain
+        ):
+            return None
+        return "https://" + domain
 
     @staticmethod
     def secure_cookie_attribute():

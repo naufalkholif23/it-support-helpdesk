@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import ipaddress
 import json
 import os
 import re
@@ -9,7 +10,7 @@ import threading
 from datetime import datetime, timedelta, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlparse, urlsplit
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -781,11 +782,6 @@ class HRISHandler(SimpleHTTPRequestHandler):
         origin = self.headers.get("Origin")
         if not origin:
             return False
-        allowed_origins = {
-            item.strip()
-            for item in os.environ.get("HRIS_ALLOWED_ORIGINS", "").split(",")
-            if item.strip()
-        }
         is_vercel_deployment = any(
             os.environ.get(name)
             for name in (
@@ -794,6 +790,25 @@ class HRISHandler(SimpleHTTPRequestHandler):
                 "VERCEL_PROJECT_PRODUCTION_URL",
             )
         )
+        normalized_origin = self.normalize_origin(
+            origin, require_https=is_vercel_deployment
+        )
+        if not normalized_origin:
+            return False
+
+        configured_origins = [
+            item.strip()
+            for item in os.environ.get("HRIS_ALLOWED_ORIGINS", "").split(",")
+            if item.strip()
+        ]
+        allowed_origins = set()
+        for configured_origin in configured_origins:
+            normalized = self.normalize_origin(
+                configured_origin, require_https=is_vercel_deployment
+            )
+            if normalized:
+                allowed_origins.add(normalized)
+
         if is_vercel_deployment:
             deployment_origin = self.vercel_origin(os.environ.get("VERCEL_URL", ""))
             if deployment_origin:
@@ -804,9 +819,48 @@ class HRISHandler(SimpleHTTPRequestHandler):
                 )
                 if production_origin:
                     allowed_origins.add(production_origin)
-        elif not allowed_origins:
-            allowed_origins.add("http://{}:{}".format(HOST, PORT))
-        return origin in allowed_origins
+        elif not configured_origins:
+            local_origin = self.normalize_origin("http://{}:{}".format(HOST, PORT))
+            if local_origin:
+                allowed_origins.add(local_origin)
+        return normalized_origin in allowed_origins
+
+    @staticmethod
+    def normalize_origin(value, require_https=False):
+        try:
+            parsed = urlsplit(value.strip())
+            hostname = parsed.hostname
+            port = parsed.port
+        except (AttributeError, ValueError):
+            return None
+        scheme = parsed.scheme.lower()
+        if (
+            scheme not in ("http", "https")
+            or (require_https and scheme != "https")
+            or not hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path not in ("", "/")
+            or parsed.query
+            or parsed.fragment
+        ):
+            return None
+        hostname = hostname.lower()
+        if ":" in hostname:
+            try:
+                hostname = str(ipaddress.IPv6Address(hostname))
+            except ipaddress.AddressValueError:
+                return None
+            hostname = "[" + hostname + "]"
+        elif not re.fullmatch(
+            r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+            r"(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*",
+            hostname,
+        ):
+            return None
+        if port is not None and port != (443 if scheme == "https" else 80):
+            hostname += ":" + str(port)
+        return scheme + "://" + hostname
 
     @staticmethod
     def vercel_origin(domain):

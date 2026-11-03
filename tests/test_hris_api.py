@@ -566,7 +566,7 @@ class EmployeeApiTests(unittest.TestCase):
 
     def test_mutations_require_an_exact_configured_origin(self):
         original_allowed_origins = os.environ.get("HRIS_ALLOWED_ORIGINS")
-        os.environ["HRIS_ALLOWED_ORIGINS"] = "https://hub.example.test"
+        os.environ["HRIS_ALLOWED_ORIGINS"] = " https://HUB.example.test:443/, "
         try:
             status, _ = self.request(
                 "/api/auth/login",
@@ -613,6 +613,49 @@ class EmployeeApiTests(unittest.TestCase):
                 os.environ.pop("HRIS_ALLOWED_ORIGINS", None)
             else:
                 os.environ["HRIS_ALLOWED_ORIGINS"] = original_allowed_origins
+
+    def test_vercel_rejects_http_origins_and_untrusted_ports(self):
+        original_environment = {
+            name: os.environ.get(name)
+            for name in (
+                "VERCEL_ENV",
+                "VERCEL_URL",
+                "VERCEL_PROJECT_PRODUCTION_URL",
+                "HRIS_ALLOWED_ORIGINS",
+            )
+        }
+        os.environ["VERCEL_ENV"] = "production"
+        os.environ["VERCEL_URL"] = "employee-hub-deployment.vercel.app"
+        os.environ["VERCEL_PROJECT_PRODUCTION_URL"] = "employee.suryanesia.example"
+        os.environ["HRIS_ALLOWED_ORIGINS"] = (
+            "http://employee.suryanesia.example, "
+            "https://*.suryanesia.example"
+        )
+        try:
+            for origin in (
+                "http://employee.suryanesia.example",
+                "https://employee.suryanesia.example:8443",
+                "https://employee.suryanesia.example.attacker.test",
+                "https://preview.suryanesia.example",
+                "null",
+            ):
+                with self.subTest(origin=origin):
+                    status, _ = self.request(
+                        "/api/auth/login",
+                        method="POST",
+                        payload={
+                            "email": "hr.demo@example.test",
+                            "password": "test-only-password",
+                        },
+                        origin=origin,
+                    )
+                    self.assertEqual(status, 403)
+        finally:
+            for name, value in original_environment.items():
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
 
     def test_vercel_origin_allowlist_uses_deployment_and_production_domains(self):
         original_environment = {

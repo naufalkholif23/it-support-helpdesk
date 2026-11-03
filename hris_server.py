@@ -119,6 +119,7 @@ def initialize_database():
                 """
                 CREATE TABLE IF NOT EXISTS users (
                     username TEXT PRIMARY KEY,
+                    email TEXT,
                     role TEXT NOT NULL CHECK (role IN (
                         'employee', 'manager', 'hr_admin', 'payroll_admin', 'system_admin'
                     )),
@@ -160,6 +161,15 @@ def initialize_database():
                     ON audit_logs(employee_id, occurred_at);
                 """
             )
+            user_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(users)").fetchall()
+            }
+            if "email" not in user_columns:
+                connection.execute("ALTER TABLE users ADD COLUMN email TEXT")
+            connection.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower "
+                "ON users (LOWER(email)) WHERE email IS NOT NULL"
+            )
 
             has_users = connection.execute("SELECT 1 FROM users LIMIT 1").fetchone()
             if not has_users:
@@ -169,16 +179,22 @@ def initialize_database():
                     password = configured_password or secrets.token_urlsafe(18)
                     salt, password_hash = hash_password(password)
                     connection.execute(
-                        "INSERT INTO users (username, role, password_salt, password_hash) "
-                        "VALUES (?, ?, ?, ?)",
-                        (username, role, salt, password_hash),
+                        "INSERT INTO users (username, email, role, password_salt, password_hash) "
+                        "VALUES (?, ?, ?, ?, ?)",
+                        (username, username + "@example.test", role, salt, password_hash),
                     )
-                    print("  {} / {}".format(username, password))
+                    print("  {} / {}".format(username + "@example.test", password))
                 if configured_password:
                     print("  Passwords were set using HRIS_DEMO_PASSWORD.")
                 else:
                     print("  Save these generated passwords; they are shown only during first setup.")
                 print()
+            else:
+                for username, role in DEMO_ACCOUNTS.values():
+                    connection.execute(
+                        "UPDATE users SET email = ? WHERE username = ? AND role = ? AND email IS NULL",
+                        (username + "@example.test", username, role),
+                    )
 
             has_employees = connection.execute("SELECT 1 FROM employees LIMIT 1").fetchone()
             if not has_employees:
@@ -196,6 +212,15 @@ def initialize_database():
 
 def json_bytes(value):
     return json.dumps(value, ensure_ascii=False).encode("utf-8")
+
+
+def validate_login_email(email):
+    if not isinstance(email, str):
+        raise ValueError("Email and password are required.")
+    email = email.strip().lower()
+    if len(email) > 254 or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        raise ValueError("Enter a valid work email address.")
+    return email
 
 
 def employee_summary(connection, include_monthly_records=False):
@@ -442,7 +467,10 @@ class HRISHandler(SimpleHTTPRequestHandler):
             if parsed.path == "/api/auth/session":
                 user = self.current_user()
                 if not user:
-                    self.send_json(200, {"authenticated": False})
+                    payload = {"authenticated": False}
+                    if getattr(self, "expired_session", False):
+                        payload["expired"] = True
+                    self.send_json(200, payload)
                     return
                 self.send_json(200, {"authenticated": True, "user": user})
                 return
@@ -469,26 +497,27 @@ class HRISHandler(SimpleHTTPRequestHandler):
             self.send_json(500, {"error": "Database operation failed."})
 
     def login(self, payload):
-        username = payload.get("username") if isinstance(payload, dict) else None
+        email = payload.get("email") if isinstance(payload, dict) else None
         password = payload.get("password") if isinstance(payload, dict) else None
-        if not isinstance(username, str) or not isinstance(password, str):
-            raise ValueError("Username and password are required.")
+        email = validate_login_email(email)
+        if not isinstance(password, str) or not password:
+            raise ValueError("Email and password are required.")
         with DATABASE_LOCK:
             connection = connect_database()
             try:
                 row = connection.execute(
                     "SELECT username, role, password_salt, password_hash "
-                    "FROM users WHERE username = ?",
-                    (username.strip().lower(),),
+                    "FROM users WHERE LOWER(email) = ?",
+                    (email,),
                 ).fetchone()
             finally:
                 connection.close()
         if not row:
-            self.send_json(401, {"error": "Invalid username or password."})
+            self.send_json(401, {"error": "Invalid email or password."})
             return
         _, candidate_hash = hash_password(password, bytes.fromhex(row["password_salt"]))
         if not hmac.compare_digest(candidate_hash, row["password_hash"]):
-            self.send_json(401, {"error": "Invalid username or password."})
+            self.send_json(401, {"error": "Invalid email or password."})
             return
 
         token = secrets.token_urlsafe(32)
@@ -570,6 +599,7 @@ class HRISHandler(SimpleHTTPRequestHandler):
                 if row:
                     connection.execute("DELETE FROM sessions WHERE token_hash = ?", (token_hash,))
                     connection.commit()
+                    self.expired_session = True
                 return None
             finally:
                 connection.close()

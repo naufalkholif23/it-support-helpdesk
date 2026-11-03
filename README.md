@@ -15,6 +15,8 @@ Open `http://127.0.0.1:8000/`. The development server binds to loopback only and
 
 On first start, the server creates a local SQLite database at `%USERPROFILE%\.suryanesia-hris\hris.sqlite3` and synthetic employee records. Demo accounts are created only for local SQLite development. The server generates random passwords and prints them once during local database initialization. `HRIS_DEMO_PASSWORD` can set a shared local demo password before the database is first created; it does not reset existing accounts.
 
+Open `http://127.0.0.1:8000/`; unauthenticated visitors are sent to the Employee Hub sign-in page. Local demo accounts use synthetic work emails in the `username@example.test` form (for example, `hr.demo@example.test`) and the password printed by the server.
+
 Set `HRIS_PORT` to change the local port. Set `HRIS_DATABASE_PATH` to change the SQLite location; it must remain outside the served project folder.
 
 ## Core HR directory
@@ -31,6 +33,12 @@ The Employee Directory preserves the existing Suryanesia shell, colors, typograp
 - Synthetic local seed users and employee records only.
 
 Directory access is currently restricted to HR administrator and system administrator roles. Employee, manager, and payroll administrator roles are denied access. Manager/team-level data scoping and employee self-service are not implemented.
+
+## Sign-in and sessions
+
+The Employee Hub uses the server-managed HRIS session for sign-in and logout. The sign-in page accepts a work email and password; account email is stored on the existing `users` record and uniquely indexed case-insensitively. Existing API session cookies remain `HttpOnly` and `SameSite=Strict`, and are `Secure` on Vercel. The frontend checks `/api/auth/session` before rendering internal routes, preserves same-site Employee Hub destinations through sign-in, and returns to sign-in with an expiry notice when the server reports an expired session. Protected API authorization remains enforced by the backend.
+
+No Google, phone, employee-ID, SAML, remember-me, or password-recovery flow is configured. The email mapping is not inferred from usernames: a real deployment must apply `migrations/002_user_email_login.sql` after the core schema migration and populate each existing user's verified work email through the approved database change process before enabling email sign-in. The migration is not run by the application or this development task. `python -m scripts.create_hr_admin` now asks for an email when creating a new administrator.
 
 The Home dashboard uses an aggregate-only endpoint for employee totals, active/inactive status, department counts, and employee records created in the current UTC month; access follows the same HR administrator and system administrator policy. The monthly figure is a record-creation date, not a hire date: the employee schema does not store join dates, probation, employment type, or contract dates, so the Employee page does not present those as employee metrics. Attendance, leave, payroll, task, location, and other employee lifecycle sections remain unavailable because those data models and workflows are not implemented.
 
@@ -63,9 +71,9 @@ Before deploying a preview:
 1. Connect this repository to a Vercel project with the project root set to this folder.
 2. Provision a managed PostgreSQL database (for example, Neon) and use its TLS-enabled connection URL.
 3. Set `DATABASE_URL` separately for Preview and Production in Vercel. Do not commit `.env` files or put secrets in HTML or JavaScript.
-4. From a trusted machine, apply `migrations/001_core_hr.sql` once to the intended database. Do not run schema migrations from a Function invocation.
+4. From a trusted machine, apply `migrations/001_core_hr.sql` and then `migrations/002_user_email_login.sql` to the intended database. Do not run schema migrations from a Function invocation. Before enabling sign-in, populate the new email field with verified work emails for existing users and confirm there are no duplicate addresses (case-insensitive).
 5. Set `HRIS_ALLOWED_ORIGINS` to the exact origin(s) for the deployment, comma-separated and without trailing slashes. Use separate, narrowly scoped values for Preview and Production; do not use `*`.
-6. Create the first HR administrator interactively from the project root with `python -m scripts.create_hr_admin`. The script prompts for a password without echoing it and requires at least 16 characters.
+6. Create the first HR administrator interactively from the project root with `python -m scripts.create_hr_admin`. The script prompts for username, work email, and a password without echoing it; the password must be at least 16 characters.
 7. Deploy a Preview using synthetic data only, then validate login/logout, CSRF, role denials, CRUD, audit records, and session cookies before considering Production.
 
 Vercel sets `VERCEL_ENV` for Preview and Production, which makes the session cookie `Secure`. API mutations require a matching configured `Origin` and the session CSRF token. The database adapter enforces TLS and uses a short connection timeout.
@@ -86,4 +94,4 @@ Tests patch the database path to a temporary SQLite database, disable any config
 
 This is a development foundation, **not a production HRIS**. Before entering real employee data, the organization must approve identity and privacy controls, implement SSO/MFA and login rate limiting, review role and manager/team scoping, configure database backups/restore and retention, and complete security and privacy testing. The current HRIS demo roles are not an approved identity provider.
 
-Helpdesk tickets and requests remain a browser-side prototype using browser storage. The legacy `login.html`, `admin-login.html`, and `admin.html` pages use demo-only client-side authentication and `sessionStorage`; their role checks can be bypassed and are not server authorization. Demo accounts and ticket operations are not production integrations. Do not use these pages to protect or store real employee/support data.
+Helpdesk tickets and requests remain a browser-side prototype using browser storage. The Employee Hub `login.html` uses the HRIS server session; `admin-login.html` and `admin.html` remain legacy demo-only client-side pages using `sessionStorage`, and their role checks can be bypassed. Demo Helpdesk accounts and ticket operations are not production integrations. Do not use the legacy Helpdesk pages to protect or store real employee/support data.

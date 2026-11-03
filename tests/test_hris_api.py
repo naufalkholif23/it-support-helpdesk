@@ -103,7 +103,7 @@ class EmployeeApiTests(unittest.TestCase):
         status, payload = self.request(
             "/api/auth/login",
             method="POST",
-            payload={"username": username, "password": "test-only-password"},
+            payload={"email": username + "@example.test", "password": "test-only-password"},
         )
         self.assertEqual(status, 200)
         self.csrf_token = payload["csrfToken"]
@@ -123,6 +123,71 @@ class EmployeeApiTests(unittest.TestCase):
         status, payload = self.request("/api/employees")
         self.assertEqual(status, 401)
         self.assertIn("Sign in", payload["error"])
+
+    def test_login_uses_case_insensitive_account_email(self):
+        status, payload = self.request(
+            "/api/auth/login",
+            method="POST",
+            payload={"email": "HR.DEMO@EXAMPLE.TEST", "password": "test-only-password"},
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["authenticated"])
+        status, session = self.request("/api/auth/session")
+        self.assertEqual(status, 200)
+        self.assertTrue(session["authenticated"])
+        self.assertEqual(session["user"]["username"], "hr.demo")
+
+    def test_login_rejects_invalid_email_and_unknown_email_generically(self):
+        status, payload = self.request(
+            "/api/auth/login",
+            method="POST",
+            payload={"email": "not-an-email", "password": "wrong"},
+        )
+        self.assertEqual(status, 400)
+        status, payload = self.request(
+            "/api/auth/login",
+            method="POST",
+            payload={"email": "unknown@example.test", "password": "wrong"},
+        )
+        self.assertEqual(status, 401)
+        self.assertEqual(payload["error"], "Invalid email or password.")
+
+    def test_existing_local_users_receive_demo_email_during_additive_migration(self):
+        legacy_path = hris_server.Path(self.temp_directory.name) / "legacy.sqlite3"
+        salt, password_hash = hris_server.hash_password("test-only-password")
+        connection = hris_server.sqlite3.connect(str(legacy_path))
+        try:
+            connection.execute(
+                "CREATE TABLE users (username TEXT PRIMARY KEY, role TEXT NOT NULL, "
+                "password_salt TEXT NOT NULL, password_hash TEXT NOT NULL)"
+            )
+            connection.execute(
+                "INSERT INTO users VALUES (?, ?, ?, ?)",
+                ("hr.demo", "hr_admin", salt, password_hash),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        original_path = hris_server.DATABASE_PATH
+        hris_server.DATABASE_PATH = legacy_path
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                hris_server.initialize_database()
+            with test_database_connection() as connection:
+                row = connection.execute(
+                    "SELECT email FROM users WHERE username = 'hr.demo'"
+                ).fetchone()
+            self.assertEqual(row["email"], "hr.demo@example.test")
+            status, payload = self.request(
+                "/api/auth/login",
+                method="POST",
+                payload={"email": "hr.demo@example.test", "password": "test-only-password"},
+            )
+            self.assertEqual(status, 200)
+            self.assertTrue(payload["authenticated"])
+        finally:
+            hris_server.DATABASE_PATH = original_path
 
     def test_dashboard_summary_requires_authentication(self):
         status, payload = self.request("/api/dashboard/summary")
@@ -252,7 +317,14 @@ class EmployeeApiTests(unittest.TestCase):
                 response = self.client.open(self.base_url + path, timeout=5)
                 self.assertEqual(response.status, 200)
                 self.assertIn("text/html", response.headers.get("Content-Type", ""))
-                self.assertIn(b"<!DOCTYPE html>", response.read()[:256])
+                content = response.read()
+                self.assertIn(b"<!DOCTYPE html>", content[:256])
+                if path == "/":
+                    self.assertIn(b"auth-gate", content)
+                if path == "/login.html":
+                    self.assertIn(b'type="email"', content)
+                    self.assertIn(b"/api/auth/login", content)
+                    self.assertNotIn(b"admin123", content)
 
     def test_employee_search_and_status_filters_are_paginated(self):
         self.login("system.demo")
@@ -394,6 +466,20 @@ class EmployeeApiTests(unittest.TestCase):
         self.assertEqual(status, 401)
         self.assertIn("Sign in", payload["error"])
 
+    def test_expired_session_is_reported_and_revoked(self):
+        self.login("hr.demo")
+        with test_database_connection() as connection:
+            connection.execute(
+                "UPDATE sessions SET expires_at = ?",
+                ("2000-01-01T00:00:00+00:00",),
+            )
+        status, payload = self.request("/api/auth/session")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload, {"authenticated": False, "expired": True})
+        status, payload = self.request("/api/auth/session")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload, {"authenticated": False})
+
     def test_session_cookie_is_secure_for_production_deployments(self):
         original_vercel_env = os.environ.get("VERCEL_ENV")
         os.environ["VERCEL_ENV"] = "production"
@@ -401,13 +487,15 @@ class EmployeeApiTests(unittest.TestCase):
             status, _ = self.request(
                 "/api/auth/login",
                 method="POST",
-                payload={"username": "hr.demo", "password": "test-only-password"},
+                payload={"email": "hr.demo@example.test", "password": "test-only-password"},
             )
             self.assertEqual(status, 200)
             session_cookie = next(
                 cookie for cookie in self.cookies if cookie.name == "hris_session"
             )
             self.assertTrue(session_cookie.secure)
+            self.assertTrue(session_cookie.has_nonstandard_attr("HttpOnly"))
+            self.assertEqual(session_cookie.get_nonstandard_attr("SameSite"), "Strict")
         finally:
             if original_vercel_env is None:
                 os.environ.pop("VERCEL_ENV", None)
@@ -480,7 +568,7 @@ class EmployeeApiTests(unittest.TestCase):
             status, _ = self.request(
                 "/api/auth/login",
                 method="POST",
-                payload={"username": "hr.demo", "password": "test-only-password"},
+                payload={"email": "hr.demo@example.test", "password": "test-only-password"},
             )
             self.assertEqual(status, 403)
 
@@ -488,7 +576,7 @@ class EmployeeApiTests(unittest.TestCase):
             status, _ = self.request(
                 "/api/auth/login",
                 method="POST",
-                payload={"username": "hr.demo", "password": "test-only-password"},
+                payload={"email": "hr.demo@example.test", "password": "test-only-password"},
             )
             self.assertEqual(status, 200)
         finally:

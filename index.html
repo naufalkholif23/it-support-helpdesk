@@ -39,6 +39,14 @@
             background-color: #f8fafc;
         }
 
+        body.auth-checking > :not(#auth-gate) {
+            visibility: hidden;
+        }
+
+        #auth-gate {
+            z-index: 200;
+        }
+
         /* Custom Scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
@@ -157,7 +165,15 @@
         }
     </style>
 </head>
-<body class="text-gray-800 h-screen flex overflow-hidden selection:bg-surya-green selection:text-white">
+<body class="auth-checking text-gray-800 h-screen flex overflow-hidden selection:bg-surya-green selection:text-white">
+    <div id="auth-gate" class="fixed inset-0 flex items-center justify-center bg-slate-50 p-6" role="status" aria-live="polite">
+        <div class="w-full max-w-sm rounded-3xl border border-gray-200 bg-white p-8 text-center shadow-xl">
+            <img src="logo-green.png" alt="Suryanesia" class="mx-auto h-12 object-contain">
+            <p id="auth-gate-message" class="mt-5 text-sm font-semibold text-gray-600">Memeriksa sesi Employee Hub...</p>
+            <div id="auth-gate-spinner" class="mx-auto mt-4 h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-[#00783d]" aria-hidden="true"></div>
+            <button id="auth-gate-retry" type="button" class="mt-4 hidden rounded-xl bg-[#00783d] px-4 py-2.5 text-sm font-bold text-white hover:bg-green-800">Coba lagi</button>
+        </div>
+    </div>
 
     <!-- Sidebar Navigation -->
     <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] -translate-x-full flex-col bg-white border-r border-gray-200 h-full shrink-0 shadow-2xl transition-transform duration-300 md:relative md:z-20 md:max-w-none md:translate-x-0 md:shadow-none">
@@ -211,7 +227,10 @@
                     <button id="btn-lang-en" class="px-3 py-1 rounded-full text-xs font-bold bg-white text-surya-green shadow-sm transition-colors" onclick="setLanguage('en')">EN</button>
                 </div>
 
-                <button class="text-gray-500 hover:text-surya-green transition-colors relative p-2 bg-gray-50 rounded-full" onclick="showToast(currentLang === 'id' ? 'Tidak ada pengumuman baru' : 'No new announcements')">
+                    <button id="hris-logout-button" type="button" onclick="logoutHRIS()" class="hidden rounded-xl border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600 hover:bg-gray-50" aria-label="Sign out">
+                        <i class="fas fa-right-from-bracket sm:mr-2" aria-hidden="true"></i><span class="hidden sm:inline">Sign out</span>
+                    </button>
+                    <button class="text-gray-500 hover:text-surya-green transition-colors relative p-2 bg-gray-50 rounded-full" onclick="showToast(currentLang === 'id' ? 'Tidak ada pengumuman baru' : 'No new announcements')">
                     <i class="far fa-bell text-lg"></i>
                     <span class="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
                 </button>
@@ -339,6 +358,109 @@
     <script>
         let currentLang = '';
         let currentViewId = 'home';
+        const hrisAuthState = { authenticated: false, user: null, csrfToken: '' };
+        let loginRedirectStarted = false;
+
+        function safeInternalDestination(value) {
+            if (typeof value !== 'string' || !value) return null;
+            try {
+                const destination = new URL(value, window.location.origin);
+                if (
+                    destination.origin !== window.location.origin ||
+                    !['/', '/index.html'].includes(destination.pathname)
+                ) return null;
+                return `${destination.pathname}${destination.hash || '#home'}`;
+            } catch {
+                return null;
+            }
+        }
+
+        function redirectToLogin(reason = '') {
+            if (loginRedirectStarted) return;
+            loginRedirectStarted = true;
+            const requested = `${window.location.pathname}${window.location.hash}`;
+            const params = new URLSearchParams();
+            if (reason) params.set('reason', reason);
+            params.set('next', safeInternalDestination(requested) || '/index.html#home');
+            window.location.replace(`login.html?${params.toString()}`);
+        }
+
+        async function initializeAppSession() {
+            const gateMessage = document.getElementById('auth-gate-message');
+            const gateSpinner = document.getElementById('auth-gate-spinner');
+            const retryButton = document.getElementById('auth-gate-retry');
+            if (gateMessage) gateMessage.textContent = 'Memeriksa sesi Employee Hub...';
+            if (gateSpinner) gateSpinner.classList.remove('hidden');
+            if (retryButton) retryButton.classList.add('hidden');
+
+            try {
+                const response = await fetch('/api/auth/session', {
+                    credentials: 'same-origin',
+                    cache: 'no-store'
+                });
+                if (!response.ok) throw new Error('Session verification failed.');
+                const session = await response.json();
+                if (!session.authenticated || !session.user) {
+                    redirectToLogin(session.expired ? 'session-expired' : '');
+                    return false;
+                }
+                hrisAuthState.authenticated = true;
+                hrisAuthState.user = session.user;
+                hrisAuthState.csrfToken = session.user.csrfToken || '';
+                employeeState.authenticated = true;
+                employeeState.user = session.user;
+                employeeState.csrfToken = hrisAuthState.csrfToken;
+                document.getElementById('auth-gate')?.classList.add('hidden');
+                document.body.classList.remove('auth-checking');
+                document.getElementById('hris-logout-button')?.classList.remove('hidden');
+                return true;
+            } catch {
+                if (gateMessage) {
+                    gateMessage.textContent = 'Tidak dapat memverifikasi sesi. Periksa koneksi lalu coba lagi.';
+                    gateMessage.setAttribute('role', 'alert');
+                }
+                if (gateSpinner) gateSpinner.classList.add('hidden');
+                if (retryButton) {
+                    retryButton.textContent = 'Coba lagi';
+                    retryButton.classList.remove('hidden');
+                    retryButton.onclick = startEmployeeHub;
+                }
+                return false;
+            }
+        }
+
+        async function startEmployeeHub() {
+            if (!await initializeAppSession()) return;
+            renderCurrentUserProfile();
+            initializeData();
+            initializeSearchBehavior();
+            setLanguage('en');
+            const initialRoute = employeeRouteState().route;
+            navigate(isKnownRoute(initialRoute) ? initialRoute : 'home', true);
+            if (!isKnownRoute(initialRoute)) {
+                window.history.replaceState({ viewId: 'home' }, '', '#home');
+            }
+        }
+
+        async function logoutHRIS() {
+            const button = document.getElementById('hris-logout-button');
+            if (button) button.disabled = true;
+            try {
+                await employeeApi('/api/auth/logout', { method: 'POST', body: '{}' });
+                hrisAuthState.authenticated = false;
+                hrisAuthState.user = null;
+                hrisAuthState.csrfToken = '';
+                redirectToLogin();
+            } catch (error) {
+                if (button) button.disabled = false;
+                const message = error.message || 'Sign out failed. Please try again.';
+                if (document.getElementById('employee-error')) {
+                    showEmployeeError(message);
+                } else {
+                    showToast(message);
+                }
+            }
+        }
 
         // Static UI Translations
         const uiTranslations = {
@@ -499,7 +621,7 @@
             { type: 'item', key: 'announcements', route: 'announcements', icon: 'fa-bullhorn' },
             { type: 'item', key: 'quick-links', route: 'links', icon: 'fa-link' },
             { type: 'item', key: 'employee-corner', route: 'corner', icon: 'fa-seedling' },
-            { type: 'link', key: 'admin-access', href: 'admin-login.html', icon: 'fa-lock' }
+            { type: 'action', key: 'sign-out', icon: 'fa-right-from-bracket', action: 'logoutHRIS' }
         ];
 
         const sidebarLabels = {
@@ -527,7 +649,7 @@
                 'knowledge-base': 'Knowledge Base', 'request-center': 'Request Center',
                 'sop-guidelines': 'SOP & Guidelines', policies: 'Policies',
                 announcements: 'Announcements', 'quick-links': 'Quick Links',
-                'employee-corner': 'Employee Corner', 'admin-access': 'Admin Access',
+                'employee-corner': 'Employee Corner', 'sign-out': 'Sign Out',
                 'main-menu': 'Main Menu'
             },
             id: {
@@ -554,7 +676,7 @@
                 'knowledge-base': 'Basis Pengetahuan', 'request-center': 'Pusat Permintaan',
                 'sop-guidelines': 'SOP dan Panduan', policies: 'Kebijakan',
                 announcements: 'Pengumuman', 'quick-links': 'Tautan Cepat',
-                'employee-corner': 'Pojok Karyawan', 'admin-access': 'Akses Admin',
+                'employee-corner': 'Pojok Karyawan', 'sign-out': 'Keluar',
                 'main-menu': 'Menu Utama'
             }
         };
@@ -1769,7 +1891,7 @@
                 employeeState.csrfToken = session.user?.csrfToken || '';
                 dashboardState.userName = session.user?.name || session.user?.username || '';
                 if (!session.authenticated) {
-                    dashboardState.access = 'unauthenticated';
+                    redirectToLogin('session-expired');
                     return;
                 }
                 if (!['hr_admin', 'system_admin'].includes(session.user?.role)) {
@@ -1807,6 +1929,12 @@
                 throw new Error(employeeCopy().networkError);
             }
             const payload = await response.json().catch(() => ({}));
+            if (response.status === 401) {
+                redirectToLogin('session-expired');
+                throw new Error(currentLang === 'id'
+                    ? 'Sesi Anda berakhir. Silakan masuk kembali.'
+                    : 'Your session has expired. Please sign in again.');
+            }
             if (!response.ok) throw new Error(payload.error || employeeCopy().loadError);
             return payload;
         }
@@ -1874,6 +2002,7 @@
                 employeeState.user = session.user || null;
                 employeeState.csrfToken = session.user?.csrfToken || '';
                 if (!session.authenticated) {
+                    redirectToLogin('session-expired');
                     employeeState.employees = [];
                     employeeState.departments = [];
                     employeeState.summary = { total: 0, active: 0, inactive: 0, departments: 0 };
@@ -2079,15 +2208,9 @@
                         </div>
                     </div>
                     <div role="note" class="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">${text.warning}</div>
-                    <section id="employee-auth-panel" class="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm" aria-label="${text.signIn}">
-                        <form id="employee-login-form" class="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-                            <label class="block text-sm font-bold text-gray-700">${text.username}<input name="username" autocomplete="username" required maxlength="80" class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 font-normal outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen"></label>
-                            <label class="block text-sm font-bold text-gray-700">${text.password}<input name="password" type="password" autocomplete="current-password" required class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 font-normal outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen"></label>
-                            <button type="submit" class="rounded-xl bg-surya-green px-5 py-3 text-sm font-bold text-white hover:bg-green-800">${text.signInButton}</button>
-                        </form>
-                        <div id="employee-user-panel" class="hidden items-center justify-between gap-3">
+                    <section id="employee-auth-panel" class="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                        <div id="employee-user-panel" class="flex items-center justify-between gap-3">
                             <p id="employee-user-label" class="text-sm font-semibold text-gray-700"></p>
-                            <button id="employee-logout-button" type="button" class="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-50">${text.signOut}</button>
                         </div>
                         <div id="employee-error" role="alert" class="mt-3 hidden rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"></div>
                     </section>
@@ -2310,13 +2433,11 @@
             document.getElementById('employee-inactive-count').textContent = hasDirectoryAccess ? String(employeeState.summary.inactive || 0) : '—';
             document.getElementById('employee-department-count').textContent = hasDirectoryAccess ? String(employeeState.summary.departments) : '—';
             document.getElementById('employee-header-count').textContent = hasDirectoryAccess ? String(employeeState.summary.total) : '—';
-            const loginForm = document.getElementById('employee-login-form');
             const userPanel = document.getElementById('employee-user-panel');
             const addButton = document.getElementById('employee-add-button');
-            if (loginForm) loginForm.classList.toggle('hidden', employeeState.authenticated);
             if (userPanel) {
-                userPanel.classList.toggle('hidden', !employeeState.authenticated);
-                userPanel.classList.toggle('flex', employeeState.authenticated);
+                userPanel.classList.toggle('hidden', !hasDirectoryAccess);
+                userPanel.classList.toggle('flex', hasDirectoryAccess);
             }
             if (addButton) {
                 addButton.classList.toggle('hidden', !['hr_admin', 'system_admin'].includes(employeeState.user?.role));
@@ -2715,21 +2836,6 @@
                 await loadEmployees();
                 return;
             }
-            if (target.closest('#employee-logout-button')) {
-                try {
-                    await employeeApi('/api/auth/logout', { method: 'POST', body: '{}' });
-                    employeeState.authenticated = false;
-                    employeeState.user = null;
-                    employeeState.csrfToken = '';
-                    employeeState.employees = [];
-                    employeeState.summary = { total: 0, active: 0, inactive: 0, departments: 0 };
-                    renderEmployeeDirectory();
-                } catch (error) {
-                    showEmployeeError(error.message);
-                }
-                return;
-            }
-
             const detailButton = target.closest('.employee-detail-button');
             if (detailButton) {
                 await showEmployeeDetails(detailButton.dataset.employeeId);
@@ -2764,31 +2870,6 @@
 
         document.addEventListener('submit', async function (event) {
             if (!(event.target instanceof HTMLFormElement)) return;
-            if (event.target.id === 'employee-login-form') {
-                event.preventDefault();
-                const form = event.target;
-                const submit = form.querySelector('button[type="submit"]');
-                submit.disabled = true;
-                try {
-                    const result = await employeeApi('/api/auth/login', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            username: form.elements.username.value.trim(),
-                            password: form.elements.password.value
-                        })
-                    });
-                    employeeState.authenticated = true;
-                    employeeState.user = result.user;
-                    employeeState.csrfToken = result.csrfToken;
-                    form.reset();
-                    await loadEmployees();
-                } catch (error) {
-                    showEmployeeError(error.message || employeeCopy().signInError);
-                } finally {
-                    submit.disabled = false;
-                }
-                return;
-            }
             if (event.target.id !== 'employee-form') return;
             event.preventDefault();
 
@@ -2999,28 +3080,23 @@
             });
         }
 
-        function getCurrentUser() {
-            try {
-                return JSON.parse(sessionStorage.getItem('currentUser') || 'null');
-            } catch (error) {
-                console.warn('Unable to read current user from sessionStorage.', error);
-                return null;
-            }
-        }
-
         function renderCurrentUserProfile() {
-            const currentUser = getCurrentUser();
+            const currentUser = hrisAuthState.user;
             const initialsEl = document.getElementById('session-user-initials');
             const nameEl = document.getElementById('session-user-name');
             const deptEl = document.getElementById('session-user-dept');
 
-            if (initialsEl) initialsEl.textContent = 'PH';
-            if (nameEl) nameEl.textContent = '';
-            if (deptEl) deptEl.textContent = '';
-        }
-
-        function guardEmployeeAccess() {
-            return false;
+            if (initialsEl) {
+                initialsEl.textContent = (currentUser?.username || 'U')
+                    .split(/[._-]/)
+                    .filter(Boolean)
+                    .map((part) => part[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase();
+            }
+            if (nameEl) nameEl.textContent = currentUser?.username || '';
+            if (deptEl) deptEl.textContent = currentUser?.role?.replace(/_/g, ' ') || '';
         }
 
         function navigationLabel(key) {
@@ -3389,19 +3465,7 @@
             }
         }
 
-        // Initialize on load
-        window.onload = function() {
-            if (guardEmployeeAccess()) return;
-            renderCurrentUserProfile();
-            initializeData();
-            initializeSearchBehavior();
-            setLanguage('en');
-            const initialRoute = employeeRouteState().route;
-            navigate(isKnownRoute(initialRoute) ? initialRoute : 'home', true);
-            if (!isKnownRoute(initialRoute)) {
-                window.history.replaceState({ viewId: 'home' }, '', '#home');
-            }
-        };
+        document.addEventListener('DOMContentLoaded', startEmployeeHub);
 
         window.addEventListener('keydown', function (event) {
             if (event.key === 'Escape') {

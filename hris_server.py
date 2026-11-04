@@ -12,8 +12,11 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse, urlsplit
 
+from dotenv import load_dotenv
+
 
 BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env.local", override=False, interpolate=False)
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 DATABASE_PATH = Path(os.environ.get(
     "HRIS_DATABASE_PATH", Path.home() / ".suryanesia-hris" / "hris.sqlite3"
@@ -215,13 +218,18 @@ def json_bytes(value):
     return json.dumps(value, ensure_ascii=False).encode("utf-8")
 
 
-def validate_login_email(email):
-    if not isinstance(email, str):
+def validate_login_identifier(identifier):
+    if not isinstance(identifier, str):
         raise ValueError("Email and password are required.")
-    email = email.strip().lower()
-    if len(email) > 254 or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
-        raise ValueError("Enter a valid work email address.")
-    return email
+    identifier = identifier.strip().lower()
+    if (
+        len(identifier) <= 254
+        and re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", identifier)
+    ):
+        return "email", identifier
+    if re.fullmatch(r"[a-z0-9._-]{3,50}", identifier):
+        return "username", identifier
+    raise ValueError("Enter a valid work email address or username.")
 
 
 def employee_summary(connection, include_monthly_records=False):
@@ -498,18 +506,19 @@ class HRISHandler(SimpleHTTPRequestHandler):
             self.send_json(500, {"error": "Database operation failed."})
 
     def login(self, payload):
-        email = payload.get("email") if isinstance(payload, dict) else None
+        identifier = payload.get("email") if isinstance(payload, dict) else None
         password = payload.get("password") if isinstance(payload, dict) else None
-        email = validate_login_email(email)
+        identifier_type, identifier = validate_login_identifier(identifier)
         if not isinstance(password, str) or not password:
             raise ValueError("Email and password are required.")
+        column = "email" if identifier_type == "email" else "username"
         with DATABASE_LOCK:
             connection = connect_database()
             try:
                 row = connection.execute(
                     "SELECT username, role, password_salt, password_hash "
-                    "FROM users WHERE LOWER(email) = ?",
-                    (email,),
+                    "FROM users WHERE LOWER({}) = ?".format(column),
+                    (identifier,),
                 ).fetchone()
             finally:
                 connection.close()
@@ -681,13 +690,15 @@ class HRISHandler(SimpleHTTPRequestHandler):
                 departments = [
                     row["department"]
                     for row in connection.execute(
-                        "SELECT DISTINCT department FROM employees ORDER BY LOWER(department)"
+                        "SELECT department FROM employees "
+                        "GROUP BY department ORDER BY LOWER(department), department"
                     ).fetchall()
                 ]
                 positions = [
                     row["position"]
                     for row in connection.execute(
-                        "SELECT DISTINCT position FROM employees ORDER BY LOWER(position)"
+                        "SELECT position FROM employees "
+                        "GROUP BY position ORDER BY LOWER(position), position"
                     ).fetchall()
                 ]
                 rows = connection.execute(

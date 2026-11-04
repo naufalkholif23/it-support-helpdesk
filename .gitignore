@@ -1,6 +1,8 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.agents/
+.vscode/
 .vercel/
 .venv/
 venv/
@@ -11,3 +13,5 @@ venv/
 *.sqlite3
 *.db
 *.log
+.neon
+node_modules/

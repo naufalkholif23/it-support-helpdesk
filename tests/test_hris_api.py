@@ -9,10 +9,33 @@ import threading
 import unittest
 import urllib.error
 import urllib.request
+from unittest.mock import Mock, patch
 
 import hris_server
 from api.index import handler as VercelApiHandler
 from api.index import routed_request_path
+
+
+class PostgresAdapterTests(unittest.TestCase):
+    @unittest.skipIf(hris_server.psycopg is None, "psycopg is not installed")
+    def test_database_url_selects_postgres_with_tls_and_named_rows(self):
+        original_database_url = hris_server.DATABASE_URL
+        hris_server.DATABASE_URL = "postgresql://test.invalid/test"
+        fake_connection = Mock()
+        try:
+            with patch.object(hris_server.psycopg, "connect", return_value=fake_connection) as connect:
+                connection = hris_server.connect_database()
+            self.assertIsInstance(connection, hris_server.PostgresConnection)
+            connect.assert_called_once_with(
+                hris_server.DATABASE_URL,
+                connect_timeout=5,
+                row_factory=hris_server.dict_row,
+                sslmode="require",
+            )
+            connection.close()
+            fake_connection.close.assert_called_once()
+        finally:
+            hris_server.DATABASE_URL = original_database_url
 
 
 @contextlib.contextmanager
@@ -140,11 +163,24 @@ class EmployeeApiTests(unittest.TestCase):
         self.assertTrue(session["authenticated"])
         self.assertEqual(session["user"]["username"], "hr.demo")
 
+    def test_login_accepts_case_insensitive_username(self):
+        status, payload = self.request(
+            "/api/auth/login",
+            method="POST",
+            payload={"email": "HR.DEMO", "password": "test-only-password"},
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["authenticated"])
+        status, session = self.request("/api/auth/session")
+        self.assertEqual(status, 200)
+        self.assertTrue(session["authenticated"])
+        self.assertEqual(session["user"]["username"], "hr.demo")
+
     def test_login_rejects_invalid_email_and_unknown_email_generically(self):
         status, payload = self.request(
             "/api/auth/login",
             method="POST",
-            payload={"email": "not-an-email", "password": "wrong"},
+            payload={"email": "not an identifier", "password": "wrong"},
         )
         self.assertEqual(status, 400)
         status, payload = self.request(
@@ -154,6 +190,26 @@ class EmployeeApiTests(unittest.TestCase):
         )
         self.assertEqual(status, 401)
         self.assertEqual(payload["error"], "Invalid email or password.")
+        status, payload = self.request(
+            "/api/auth/login",
+            method="POST",
+            payload={"email": "unknown.user", "password": "wrong"},
+        )
+        self.assertEqual(status, 401)
+        self.assertEqual(payload["error"], "Invalid email or password.")
+
+    def test_database_errors_return_a_generic_login_response(self):
+        with patch(
+            "hris_server.connect_database",
+            side_effect=hris_server.sqlite3.OperationalError("synthetic database detail"),
+        ):
+            status, payload = self.request(
+                "/api/auth/login",
+                method="POST",
+                payload={"email": "hr.demo", "password": "test-only-password"},
+            )
+        self.assertEqual(status, 500)
+        self.assertEqual(payload, {"error": "Database operation failed."})
 
     def test_existing_local_users_receive_demo_email_during_additive_migration(self):
         legacy_path = hris_server.Path(self.temp_directory.name) / "legacy.sqlite3"
@@ -325,7 +381,8 @@ class EmployeeApiTests(unittest.TestCase):
                 if path == "/":
                     self.assertIn(b"auth-gate", content)
                 if path == "/login.html":
-                    self.assertIn(b'type="email"', content)
+                    self.assertIn(b'type="text"', content)
+                    self.assertIn(b"Work email or username", content)
                     self.assertIn(b"/api/auth/login", content)
                     self.assertNotIn(b"admin123", content)
 
@@ -370,6 +427,68 @@ class EmployeeApiTests(unittest.TestCase):
         status, payload = self.request("/api/employees?position=Missing+Role")
         self.assertEqual(status, 200)
         self.assertEqual(payload["total"], 0)
+
+    def test_employee_department_and_position_facets_are_grouped_and_ordered(self):
+        self.login("hr.demo")
+        now = hris_server.datetime.now(hris_server.timezone.utc).isoformat()
+        employee_ids = ("DISTINCT-900", "DISTINCT-901", "DISTINCT-902")
+        with test_database_connection() as connection:
+            connection.executemany(
+                "INSERT INTO employees "
+                "(employee_id, full_name, email, department, position, status, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        employee_id,
+                        "Distinct Query Test",
+                        employee_id.lower() + "@example.test",
+                        department,
+                        position,
+                        "active",
+                        now,
+                        now,
+                    )
+                    for employee_id, department, position in zip(
+                        employee_ids,
+                        ("Regression Beta", "Regression Alpha", "Regression Alpha"),
+                        ("Regression Role B", "Regression Role A", "Regression Role A"),
+                    )
+                ],
+            )
+
+        try:
+            status, payload = self.request(
+                "/api/employees?department=Regression+Alpha&position=Regression+Role+A"
+                "&page=1&pageSize=1"
+            )
+            self.assertEqual(status, 200)
+            self.assertEqual(payload["total"], 2)
+            self.assertEqual(payload["page"], 1)
+            self.assertEqual(len(payload["employees"]), 1)
+            departments = [
+                value for value in payload["departments"]
+                if value.startswith("Regression ")
+            ]
+            positions = [
+                value for value in payload["positions"]
+                if value.startswith("Regression ")
+            ]
+            self.assertEqual(set(departments), {"Regression Alpha", "Regression Beta"})
+            self.assertEqual(set(positions), {"Regression Role A", "Regression Role B"})
+            self.assertEqual(
+                [value.lower() for value in departments],
+                sorted(value.lower() for value in departments),
+            )
+            self.assertEqual(
+                [value.lower() for value in positions],
+                sorted(value.lower() for value in positions),
+            )
+        finally:
+            with test_database_connection() as connection:
+                connection.executemany(
+                    "DELETE FROM employees WHERE employee_id = ?",
+                    [(employee_id,) for employee_id in employee_ids],
+                )
 
     def test_hr_admin_can_create_search_update_and_delete_with_audit(self):
         user = self.login("hr.demo")

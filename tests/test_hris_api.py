@@ -448,7 +448,7 @@ class EmployeeApiTests(unittest.TestCase):
         except urllib.error.HTTPError as error:
             response = error
         self.assertEqual(response.code, 302)
-        self.assertEqual(response.headers.get("Location"), "/platform.html")
+        self.assertEqual(response.headers.get("Location"), "/index.html")
 
     def test_payroll_role_cannot_read_employee_directory(self):
         self.login("payroll.demo")

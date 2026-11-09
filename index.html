@@ -432,7 +432,7 @@
                 );
                 if (hrisAuthState.demoMode) {
                     document.querySelector('[aria-label="Back to platform selection"]')
-                        ?.setAttribute('href', '/platform.html');
+                        ?.classList.add('hidden');
                 }
                 document.getElementById('auth-gate')?.classList.add('hidden');
                 document.body.classList.remove('auth-checking');

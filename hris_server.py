@@ -366,7 +366,7 @@ class HRISHandler(SimpleHTTPRequestHandler):
             destination = (
                 "/employee-hub#home"
                 if demo_mode_enabled()
-                else "/platform.html"
+                else "/index.html"
             )
             self.redirect(destination)
             return

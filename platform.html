@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="theme-color" content="#f8fafc">
+    <title>Suryanesia Employee Platform</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            color-scheme: light;
+            font-family: "Plus Jakarta Sans", sans-serif;
+            color: #17231d;
+            background: #f8fafc;
+            font-synthesis: none;
+            text-rendering: optimizeLegibility;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            background:
+                radial-gradient(ellipse at 9% 0%, rgba(0, 120, 61, 0.09), transparent 34rem),
+                linear-gradient(180deg, #fbfdfb 0%, #f5f8f6 100%);
+        }
+
+        a {
+            color: inherit;
+        }
+
+        .page-shell {
+            display: flex;
+            min-height: 100vh;
+            flex-direction: column;
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 28px 40px 22px;
+        }
+
+        .site-header,
+        .site-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 14px;
+            text-decoration: none;
+        }
+
+        .brand img {
+            display: block;
+            width: 168px;
+            max-height: 48px;
+            object-fit: contain;
+            object-position: left center;
+        }
+
+        .brand-divider {
+            width: 1px;
+            height: 30px;
+            background: #dce5df;
+        }
+
+        .brand-label {
+            color: #64736a;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .header-note {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            color: #64736a;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .header-note::before {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #00783d;
+            content: "";
+            box-shadow: 0 0 0 4px rgba(0, 120, 61, 0.1);
+        }
+
+        main {
+            display: flex;
+            flex: 1;
+            flex-direction: column;
+            justify-content: center;
+            padding: 72px 0 88px;
+        }
+
+        .intro {
+            max-width: 760px;
+            margin: 0 auto 48px;
+            text-align: center;
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            margin: 0 0 19px;
+            color: #00783d;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+        }
+
+        .eyebrow::before,
+        .eyebrow::after {
+            width: 20px;
+            height: 1px;
+            background: #8ebba2;
+            content: "";
+        }
+
+        h1 {
+            margin: 0;
+            color: #15231b;
+            font-size: clamp(36px, 5vw, 58px);
+            font-weight: 800;
+            letter-spacing: -0.055em;
+            line-height: 1.12;
+        }
+
+        .tagline {
+            margin: 17px 0 0;
+            color: #00783d;
+            font-size: clamp(17px, 2vw, 21px);
+            font-weight: 700;
+            letter-spacing: -0.025em;
+        }
+
+        .intro-copy {
+            max-width: 620px;
+            margin: 16px auto 0;
+            color: #65736b;
+            font-size: 15px;
+            line-height: 1.8;
+        }
+
+        .platform-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 22px;
+            max-width: 970px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .platform-card {
+            --accent: #00783d;
+            --accent-soft: #e9f5ed;
+            position: relative;
+            display: flex;
+            min-height: 330px;
+            flex-direction: column;
+            overflow: hidden;
+            padding: 30px;
+            border: 1px solid #e1e9e3;
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.92);
+            box-shadow: 0 14px 40px rgba(28, 54, 38, 0.055);
+            text-decoration: none;
+            transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+        }
+
+        .platform-card::after {
+            position: absolute;
+            top: -68px;
+            right: -52px;
+            width: 190px;
+            height: 190px;
+            border-radius: 50%;
+            background: var(--accent-soft);
+            content: "";
+            opacity: 0.68;
+            pointer-events: none;
+        }
+
+        .platform-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(0, 120, 61, 0.38);
+            box-shadow: 0 22px 50px rgba(28, 54, 38, 0.12);
+        }
+
+        .platform-card:focus-visible {
+            outline: 3px solid rgba(0, 120, 61, 0.45);
+            outline-offset: 4px;
+        }
+
+        .platform-card.hris {
+            --accent: #976000;
+            --accent-soft: #fff3d8;
+        }
+
+        .card-topline,
+        .card-content,
+        .card-action {
+            position: relative;
+            z-index: 1;
+        }
+
+        .card-topline {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .platform-icon {
+            display: grid;
+            width: 58px;
+            height: 58px;
+            place-items: center;
+            border-radius: 17px;
+            background: var(--accent-soft);
+            color: var(--accent);
+        }
+
+        .platform-icon svg {
+            width: 27px;
+            height: 27px;
+        }
+
+        .card-index {
+            color: #a4b0a8;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+        }
+
+        .card-content {
+            margin: 27px 0 25px;
+        }
+
+        .card-content h2 {
+            margin: 0;
+            color: #1b2b21;
+            font-size: 25px;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+        }
+
+        .card-content p {
+            margin: 11px 0 0;
+            color: #65736b;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        .card-action {
+            display: inline-flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: auto;
+            padding-top: 17px;
+            border-top: 1px solid #edf1ee;
+            color: var(--accent);
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .card-action svg {
+            width: 18px;
+            height: 18px;
+            transition: transform 180ms ease;
+        }
+
+        .platform-card:hover .card-action svg {
+            transform: translateX(4px);
+        }
+
+        .site-footer {
+            padding-top: 18px;
+            border-top: 1px solid #e6ece8;
+            color: #849087;
+            font-size: 12px;
+        }
+
+        .footer-note {
+            font-weight: 600;
+        }
+
+        @media (max-width: 760px) {
+            .page-shell {
+                padding: 22px 22px 18px;
+            }
+
+            main {
+                padding: 58px 0 64px;
+            }
+
+            .intro {
+                margin-bottom: 34px;
+            }
+
+            .platform-grid {
+                max-width: 540px;
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            .platform-card {
+                min-height: 290px;
+                padding: 25px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .page-shell {
+                padding-right: 18px;
+                padding-left: 18px;
+            }
+
+            .brand {
+                gap: 9px;
+            }
+
+            .brand img {
+                width: 132px;
+            }
+
+            .brand-divider,
+            .brand-label {
+                display: none;
+            }
+
+            .header-note {
+                font-size: 11px;
+            }
+
+            main {
+                padding-top: 48px;
+            }
+
+            .intro-copy {
+                font-size: 14px;
+            }
+
+            .platform-card {
+                min-height: 0;
+                padding: 23px;
+            }
+
+            .card-content h2 {
+                font-size: 23px;
+            }
+
+            .site-footer {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 6px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                scroll-behavior: auto !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-shell">
+        <header class="site-header">
+            <a class="brand" href="/" aria-label="Suryanesia Employee Platform home">
+                <img src="logo-green.png" alt="Suryanesia">
+                <span class="brand-divider" aria-hidden="true"></span>
+                <span class="brand-label">Employee Platform</span>
+            </a>
+            <span class="header-note">One connected workplace</span>
+        </header>
+
+        <main>
+            <section class="intro" aria-labelledby="platform-title">
+                <p class="eyebrow">Your Suryanesia workspace</p>
+                <h1 id="platform-title">Suryanesia Employee Platform</h1>
+                <p class="tagline">Your workplace, connected in one place.</p>
+                <p class="intro-copy">Access the employee services and workplace tools you need through one connected platform. Choose where you would like to start.</p>
+            </section>
+
+            <section class="platform-grid" aria-label="Choose a platform">
+                <a class="platform-card employee" href="/employee-hub" aria-label="Access Employee Hub">
+                    <span class="card-topline">
+                        <span class="platform-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 10.5 12 3l9 7.5"></path>
+                                <path d="M5.5 9.5V21h13V9.5"></path>
+                                <path d="M9 21v-6h6v6"></path>
+                            </svg>
+                        </span>
+                        <span class="card-index">01 / EMPLOYEE</span>
+                    </span>
+                    <span class="card-content">
+                        <h2>Employee Hub</h2>
+                        <p>Your central workplace for employee information, company announcements, IT support, internal resources, and employee services.</p>
+                    </span>
+                    <span class="card-action">
+                        <span>Access Employee Hub</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M5 12h14M13 6l6 6-6 6"></path>
+                        </svg>
+                    </span>
+                </a>
+
+                <a class="platform-card hris" href="/hris" aria-label="Access HRIS">
+                    <span class="card-topline">
+                        <span class="platform-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="4" width="18" height="16" rx="2.5"></rect>
+                                <path d="M8 9h8M8 13h3"></path>
+                                <circle cx="16.5" cy="14.5" r="2.5"></circle>
+                            </svg>
+                        </span>
+                        <span class="card-index">02 / HUMAN RESOURCES</span>
+                    </span>
+                    <span class="card-content">
+                        <h2>HRIS</h2>
+                        <p>A centralized Human Resource Information System for managing employee data, attendance, payroll, recruitment, approvals, and HR operations.</p>
+                    </span>
+                    <span class="card-action">
+                        <span>Access HRIS</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M5 12h14M13 6l6 6-6 6"></path>
+                        </svg>
+                    </span>
+                </a>
+            </section>
+        </main>
+
+        <footer class="site-footer">
+            <span>© 2026 Suryanesia. All rights reserved.</span>
+            <span class="footer-note">Connected people. Better work.</span>
+        </footer>
+    </div>
+</body>
+</html>

@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Suryanesia HR Helpdesk</title>
+
+    <title>Suryanesia Employee Platform</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -215,6 +216,11 @@
             
             <!-- Right Actions -->
             <div class="flex items-center space-x-2 sm:space-x-4 ml-auto sm:ml-4">
+                <a href="/" class="flex h-10 items-center justify-center gap-2 rounded-xl border border-gray-200 px-3 text-sm font-bold text-gray-600 transition-colors hover:border-surya-green hover:bg-surya-lightgreen hover:text-surya-green" aria-label="Back to platform selection" title="Back to platform selection">
+                    <i class="fas fa-layer-group" aria-hidden="true"></i>
+                    <span class="hidden sm:inline">Platforms</span>
+                </a>
+                <span id="demo-mode-indicator" class="hidden rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold tracking-wider text-emerald-800">DEMO MODE</span>
                 <button type="button" onclick="openTicketForm()" class="flex h-10 w-10 items-center justify-center rounded-xl bg-surya-green text-white shadow-sm hover:bg-green-800 sm:hidden" aria-label="Buat tiket">
                     <i class="fas fa-plus"></i>
                 </button>
@@ -358,8 +364,12 @@
     <script>
         let currentLang = '';
         let currentViewId = 'home';
-        const hrisAuthState = { authenticated: false, user: null, csrfToken: '' };
+        const hrisAuthState = { authenticated: false, user: null, csrfToken: '', demoMode: false };
         let loginRedirectStarted = false;
+
+        function isHrisPlatform() {
+            return ['/hris', '/hris/'].includes(window.location.pathname);
+        }
 
         function safeInternalDestination(value) {
             if (typeof value !== 'string' || !value) return null;
@@ -367,7 +377,7 @@
                 const destination = new URL(value, window.location.origin);
                 if (
                     destination.origin !== window.location.origin ||
-                    !['/', '/index.html'].includes(destination.pathname)
+                    !['/', '/index.html', '/employee-hub', '/hris', '/hris/'].includes(destination.pathname)
                 ) return null;
                 return `${destination.pathname}${destination.hash || '#home'}`;
             } catch {
@@ -407,12 +417,29 @@
                 hrisAuthState.authenticated = true;
                 hrisAuthState.user = session.user;
                 hrisAuthState.csrfToken = session.user.csrfToken || '';
+                hrisAuthState.demoMode = Boolean(session.demoMode);
                 employeeState.authenticated = true;
                 employeeState.user = session.user;
                 employeeState.csrfToken = hrisAuthState.csrfToken;
+                employeeState.demoMode = hrisAuthState.demoMode;
+                document.getElementById('demo-mode-indicator')?.classList.toggle(
+                    'hidden',
+                    !hrisAuthState.demoMode
+                );
+                document.getElementById('hris-logout-button')?.classList.toggle(
+                    'hidden',
+                    hrisAuthState.demoMode
+                );
+                if (hrisAuthState.demoMode) {
+                    document.querySelector('[aria-label="Back to platform selection"]')
+                        ?.setAttribute('href', '/platform.html');
+                }
                 document.getElementById('auth-gate')?.classList.add('hidden');
                 document.body.classList.remove('auth-checking');
-                document.getElementById('hris-logout-button')?.classList.remove('hidden');
+                document.getElementById('hris-logout-button')?.classList.toggle(
+                    'hidden',
+                    hrisAuthState.demoMode
+                );
                 return true;
             } catch {
                 if (gateMessage) {
@@ -431,6 +458,9 @@
 
         async function startEmployeeHub() {
             if (!await initializeAppSession()) return;
+            document.title = isHrisPlatform()
+                ? 'HRIS | Suryanesia Employee Platform'
+                : 'Employee Hub | Suryanesia Employee Platform';
             renderCurrentUserProfile();
             initializeData();
             initializeSearchBehavior();
@@ -443,6 +473,7 @@
         }
 
         async function logoutHRIS() {
+            if (hrisAuthState.demoMode) return;
             const button = document.getElementById('hris-logout-button');
             if (button) button.disabled = true;
             try {
@@ -450,6 +481,7 @@
                 hrisAuthState.authenticated = false;
                 hrisAuthState.user = null;
                 hrisAuthState.csrfToken = '';
+                hrisAuthState.demoMode = false;
                 redirectToLogin();
             } catch (error) {
                 if (button) button.disabled = false;
@@ -1408,19 +1440,21 @@
         }
 
         function setDashboardHome() {
-            const shell = `
+            const shell = (loadingText) => `
                 <div id="dashboard-root" class="fade-in mx-auto w-full max-w-7xl p-4 pb-12 md:p-8">
                     <div class="flex min-h-48 items-center justify-center rounded-2xl border border-gray-200 bg-white text-sm text-gray-500" role="status">
                         <i class="fas fa-circle-notch mr-3 animate-spin text-surya-green" aria-hidden="true"></i>
-                        <span>${currentLang === 'id' ? 'Memuat dashboard...' : 'Loading dashboard...'}</span>
+                        <span>${loadingText}</span>
                     </div>
                 </div>
             `;
-            views.en.home = shell;
-            views.id.home = shell;
+            return {
+                en: shell('Loading HR dashboard...'),
+                id: shell('Memuat dashboard HR...')
+            };
         }
 
-        setDashboardHome();
+        const hrisDashboardHome = setDashboardHome();
 
         const employeeState = {
             employees: [],
@@ -1433,6 +1467,7 @@
             authenticated: false,
             user: null,
             csrfToken: '',
+            demoMode: false,
             loading: false,
             error: '',
             requestId: 0,
@@ -1889,12 +1924,13 @@
                 employeeState.authenticated = Boolean(session.authenticated);
                 employeeState.user = session.user || null;
                 employeeState.csrfToken = session.user?.csrfToken || '';
+                employeeState.demoMode = Boolean(session.demoMode);
                 dashboardState.userName = session.user?.name || session.user?.username || '';
                 if (!session.authenticated) {
                     redirectToLogin('session-expired');
                     return;
                 }
-                if (!['hr_admin', 'system_admin'].includes(session.user?.role)) {
+                if (!session.demoMode && !['hr_admin', 'system_admin'].includes(session.user?.role)) {
                     dashboardState.access = 'restricted';
                     return;
                 }
@@ -1917,8 +1953,16 @@
         async function employeeApi(path, options) {
             const requestOptions = Object.assign({ credentials: 'same-origin' }, options || {});
             requestOptions.headers = Object.assign({}, requestOptions.headers || {});
+            const method = (requestOptions.method || 'GET').toUpperCase();
+            if (
+                hrisAuthState.demoMode &&
+                path.startsWith('/api/employees') &&
+                method !== 'GET'
+            ) {
+                throw new Error('Demo Mode is read-only. Employee records cannot be changed.');
+            }
             if (requestOptions.body) requestOptions.headers['Content-Type'] = 'application/json';
-            if (requestOptions.method && requestOptions.method !== 'GET' && employeeState.csrfToken) {
+            if (method !== 'GET' && employeeState.csrfToken) {
                 requestOptions.headers['X-CSRF-Token'] = employeeState.csrfToken;
             }
 
@@ -2001,6 +2045,7 @@
                 employeeState.authenticated = session.authenticated;
                 employeeState.user = session.user || null;
                 employeeState.csrfToken = session.user?.csrfToken || '';
+                employeeState.demoMode = Boolean(session.demoMode);
                 if (!session.authenticated) {
                     redirectToLogin('session-expired');
                     employeeState.employees = [];
@@ -2305,7 +2350,8 @@
             const emptyState = document.getElementById('employee-empty-state');
             const summaryCards = document.getElementById('employee-summary-cards');
             const hasDirectoryAccess = employeeState.authenticated &&
-                ['hr_admin', 'system_admin'].includes(employeeState.user?.role) &&
+                (employeeState.demoMode ||
+                    ['hr_admin', 'system_admin'].includes(employeeState.user?.role)) &&
                 !employeeState.error;
             if (summaryCards) {
                 summaryCards.classList.toggle('hidden', !hasDirectoryAccess);
@@ -3144,6 +3190,7 @@
             const menu = [];
             menu.push(`<p class="px-3 pb-3 text-xs font-bold uppercase tracking-widest text-gray-400">${navigationLabel('main-menu')}</p>`);
             for (const item of sidebarMenu) {
+                if (hrisAuthState.demoMode && item.key === 'sign-out') continue;
                 if (item.type === 'divider') {
                     if (item.key === 'helpdesk-divider') {
                         menu.push('<div class="my-4 border-t border-gray-100" role="separator"></div>');
@@ -3346,16 +3393,18 @@
                 // Inject HTML using current view and language
                 contentArea.innerHTML = viewId === 'employees'
                     ? employeeDirectoryView()
-                    : placeholderRoutes.has(viewId) && !views[currentLang][viewId]
-                        ? placeholderPage(viewId)
-                        : views[currentLang][viewId] || views[currentLang]['home'];
+                    : viewId === 'home' && isHrisPlatform()
+                        ? hrisDashboardHome[currentLang]
+                        : placeholderRoutes.has(viewId) && !views[currentLang][viewId]
+                            ? placeholderPage(viewId)
+                            : views[currentLang][viewId] || views[currentLang]['home'];
                 // Reset scroll unless we are just toggling languages
                 if (!isLangSwitch) contentArea.scrollTop = 0; 
                 // Fade in
                 contentArea.style.opacity = '1';
                 renderSidebarNavigation();
                 if (viewId === 'employees') initializeEmployeeDirectory();
-                if (viewId === 'home') initializeDashboard();
+                if (viewId === 'home' && isHrisPlatform()) initializeDashboard();
             }, 150);
         }
 

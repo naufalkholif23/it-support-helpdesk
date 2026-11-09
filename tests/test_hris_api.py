@@ -60,13 +60,21 @@ class EmployeeApiTests(unittest.TestCase):
             for name in (
                 "HRIS_DEMO_PASSWORD",
                 "HRIS_ALLOWED_ORIGINS",
+                "HRIS_DEMO_MODE",
+                "HRIS_DEMO_SESSION_SECRET",
                 "VERCEL",
                 "VERCEL_ENV",
             )
         }
         hris_server.DATABASE_URL = ""
         hris_server.DATABASE_PATH = hris_server.Path(cls.temp_directory.name) / "test.sqlite3"
-        for name in ("HRIS_ALLOWED_ORIGINS", "VERCEL", "VERCEL_ENV"):
+        for name in (
+            "HRIS_ALLOWED_ORIGINS",
+            "HRIS_DEMO_MODE",
+            "HRIS_DEMO_SESSION_SECRET",
+            "VERCEL",
+            "VERCEL_ENV",
+        ):
             os.environ.pop(name, None)
         os.environ["HRIS_DEMO_PASSWORD"] = "test-only-password"
 
@@ -297,6 +305,150 @@ class EmployeeApiTests(unittest.TestCase):
         status, payload = self.request("/api?__vercel_route=auth/session")
         self.assertEqual(status, 200)
         self.assertEqual(payload, {"authenticated": False})
+        self.assertEqual(
+            routed_request_path("/api?__vercel_route=public-entry"),
+            "/api/public-entry",
+        )
+
+    def test_public_demo_mode_uses_only_synthetic_read_only_data(self):
+        os.environ.pop("HRIS_DEMO_MODE", None)
+        os.environ.pop("HRIS_DEMO_SESSION_SECRET", None)
+        self.csrf_token = ""
+        with patch.dict(os.environ, {
+            "HRIS_DEMO_MODE": "1",
+            "HRIS_DEMO_SESSION_SECRET": "test-demo-session-secret-" + ("x" * 32),
+        }):
+            with patch.object(
+                hris_server,
+                "connect_database",
+                side_effect=AssertionError("Demo mode must not access a database."),
+            ) as connect:
+                status, payload = self.request("/api/auth/session")
+                self.assertEqual(status, 200)
+                self.assertTrue(payload["authenticated"])
+                self.assertTrue(payload["demoMode"])
+                self.assertEqual(payload["user"]["username"], "demo.viewer")
+                self.assertEqual(payload["user"]["role"], "demo_viewer")
+                self.csrf_token = payload["csrfToken"]
+
+                status, payload = self.request("/api/auth/session")
+                self.assertEqual(status, 200)
+                self.assertTrue(payload["authenticated"])
+                self.assertTrue(payload["demoMode"])
+                self.assertEqual(payload["user"]["role"], "demo_viewer")
+
+                status, payload = self.request("/api/dashboard/summary")
+                self.assertEqual(status, 200)
+                self.assertEqual(payload["summary"]["total"], 3)
+                self.assertEqual(payload["summary"]["active"], 2)
+
+                status, payload = self.request("/api/employees?search=demo")
+                self.assertEqual(status, 200)
+                self.assertEqual(payload["total"], 3)
+                self.assertEqual(
+                    {item["id"] for item in payload["employees"]},
+                    {"DEMO-001", "DEMO-002", "DEMO-003"},
+                )
+                self.assertTrue(all(
+                    item["email"].endswith("@example.test")
+                    for item in payload["employees"]
+                ))
+
+                status, payload = self.request("/api/employees/DEMO-001")
+                self.assertEqual(status, 200)
+                self.assertEqual(payload["employee"]["id"], "DEMO-001")
+
+                status, _ = self.request(
+                    "/api/auth/login",
+                    method="POST",
+                    payload={"email": "hr.demo@example.test", "password": "test-only-password"},
+                )
+                self.assertEqual(status, 403)
+
+                mutation_requests = (
+                    ("POST", "/api/employees", self.employee_payload("DEMO-900")),
+                    ("PUT", "/api/employees/DEMO-001", self.employee_payload("DEMO-001")),
+                    ("DELETE", "/api/employees/DEMO-001", None),
+                )
+                for method, path, body in mutation_requests:
+                    with self.subTest(method=method):
+                        status, payload = self.request(path, method=method, payload=body)
+                        self.assertEqual(status, 403)
+                        self.assertIn("read-only", payload["error"])
+
+                status, payload = self.request(
+                    "/api/auth/logout", method="POST", payload={}
+                )
+                self.assertEqual(status, 200)
+                self.assertFalse(payload["authenticated"])
+                status, payload = self.request("/api/auth/session")
+                self.assertEqual(status, 200)
+                self.assertTrue(payload["authenticated"])
+                self.assertTrue(payload["demoMode"])
+                self.assertFalse(connect.called)
+
+    def test_demo_mode_is_only_enabled_on_vercel_preview(self):
+        with patch.dict(os.environ, {
+            "HRIS_DEMO_MODE": "1",
+            "VERCEL": "1",
+            "VERCEL_ENV": "preview",
+        }):
+            self.assertTrue(hris_server.demo_mode_enabled())
+        with patch.dict(os.environ, {
+            "HRIS_DEMO_MODE": "1",
+            "VERCEL": "1",
+            "VERCEL_ENV": "production",
+        }):
+            self.assertFalse(hris_server.demo_mode_enabled())
+        with patch.dict(os.environ, {
+            "HRIS_DEMO_MODE": "1",
+            "VERCEL": "1",
+        }):
+            os.environ.pop("VERCEL_ENV", None)
+            self.assertFalse(hris_server.demo_mode_enabled())
+
+    def test_demo_mode_fails_closed_without_session_secret(self):
+        with patch.dict(os.environ, {"HRIS_DEMO_MODE": "true"}, clear=False):
+            os.environ.pop("HRIS_DEMO_SESSION_SECRET", None)
+            with patch.object(
+                hris_server,
+                "connect_database",
+                side_effect=AssertionError("Demo mode must not access a database."),
+            ) as connect:
+                status, payload = self.request("/api/auth/session")
+                self.assertEqual(status, 503)
+                self.assertEqual(payload["error"], "Demo mode is not configured correctly.")
+                self.assertFalse(connect.called)
+
+    def test_public_entry_redirects_only_when_demo_mode_is_enabled(self):
+        class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, request, response, code, message, headers, new_url):
+                return None
+
+        opener = urllib.request.build_opener(NoRedirectHandler())
+        with patch.dict(os.environ, {
+            "HRIS_DEMO_MODE": "1",
+            "HRIS_DEMO_SESSION_SECRET": "test-demo-session-secret-" + ("x" * 32),
+        }):
+            for path in ("/", "/api?__vercel_route=public-entry"):
+                request = urllib.request.Request(self.base_url + path)
+                try:
+                    response = opener.open(request, timeout=5)
+                except urllib.error.HTTPError as error:
+                    response = error
+                self.assertEqual(response.code, 302)
+                self.assertEqual(
+                    response.headers.get("Location"),
+                    "/employee-hub#home",
+                )
+
+        request = urllib.request.Request(self.base_url + "/api?__vercel_route=public-entry")
+        try:
+            response = opener.open(request, timeout=5)
+        except urllib.error.HTTPError as error:
+            response = error
+        self.assertEqual(response.code, 302)
+        self.assertEqual(response.headers.get("Location"), "/platform.html")
 
     def test_payroll_role_cannot_read_employee_directory(self):
         self.login("payroll.demo")
@@ -371,7 +523,17 @@ class EmployeeApiTests(unittest.TestCase):
         self.assertEqual(status, 200)
 
     def test_existing_helpdesk_pages_are_served(self):
-        for path in ("/", "/index.html", "/login.html", "/admin-login.html", "/admin.html"):
+        for path in (
+            "/",
+            "/platform.html",
+            "/employee-hub",
+            "/hris",
+            "/hris/",
+            "/index.html",
+            "/login.html",
+            "/admin-login.html",
+            "/admin.html",
+        ):
             with self.subTest(path=path):
                 response = self.client.open(self.base_url + path, timeout=5)
                 self.assertEqual(response.status, 200)
@@ -379,12 +541,39 @@ class EmployeeApiTests(unittest.TestCase):
                 content = response.read()
                 self.assertIn(b"<!DOCTYPE html>", content[:256])
                 if path == "/":
+                    self.assertIn(b"Suryanesia Employee Platform", content)
+                    self.assertIn(b"/employee-hub", content)
+                    self.assertIn(b'href="/hris"', content)
+                if path in ("/employee-hub", "/index.html"):
                     self.assertIn(b"auth-gate", content)
+                    self.assertIn(b'href="/"', content)
+                    self.assertIn(b"DEMO MODE", content)
+                if path in ("/hris", "/hris/"):
+                    self.assertIn(b"auth-gate", content)
+                    self.assertIn(b"function isHrisPlatform()", content)
+                    self.assertIn(b"Loading HR dashboard...", content)
                 if path == "/login.html":
                     self.assertIn(b'type="text"', content)
                     self.assertIn(b"Work email or username", content)
                     self.assertIn(b"/api/auth/login", content)
+                    self.assertIn(b"Masuk ke Employee Hub", content)
+                    self.assertIn(b"/api/auth/demo-login", content)
+                    self.assertIn(b"Back to Platform Selection", content)
                     self.assertNotIn(b"admin123", content)
+
+    def test_platform_home_templates_and_safe_login_return_paths_are_distinct(self):
+        frontend = (hris_server.BASE_DIR / "index.html").read_text(encoding="utf-8")
+        login = (hris_server.BASE_DIR / "login.html").read_text(encoding="utf-8")
+        platform = (hris_server.BASE_DIR / "platform.html").read_text(encoding="utf-8")
+
+        self.assertIn("const hrisDashboardHome = setDashboardHome();", frontend)
+        self.assertNotIn("views.en.home = shell;", frontend)
+        self.assertIn("viewId === 'home' && isHrisPlatform()", frontend)
+        self.assertIn("!['/', '/index.html', '/employee-hub', '/hris', '/hris/'].includes(destination.pathname)", frontend)
+        self.assertIn("destination.origin !== window.location.origin", frontend)
+        self.assertIn("['/', '/index.html', '/employee-hub', '/hris', '/hris/'].includes(destination.pathname)", login)
+        self.assertIn('href="/employee-hub"', platform)
+        self.assertIn('href="/hris"', platform)
 
     def test_employee_search_and_status_filters_are_paginated(self):
         self.login("system.demo")

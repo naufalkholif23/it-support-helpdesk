@@ -9,6 +9,22 @@
     {
       "source": "/api/:path*",
       "destination": "/api?__vercel_route=:path*"
+    },
+    {
+      "source": "/",
+      "destination": "/api?__vercel_route=public-entry"
+    },
+    {
+      "source": "/employee-hub",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/hris",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/hris/",
+      "destination": "/index.html"
     }
   ],
   "headers": [

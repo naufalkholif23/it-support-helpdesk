@@ -54,6 +54,10 @@ class DatabaseConfigurationError(RuntimeError):
     pass
 
 
+class DemoConfigurationError(DatabaseConfigurationError):
+    pass
+
+
 try:
     import psycopg
     from psycopg.rows import dict_row
@@ -76,14 +80,18 @@ def demo_mode_enabled():
     )
     vercel_environment = os.environ.get("VERCEL_ENV", "").strip().lower()
     if vercel_environment or os.environ.get("VERCEL"):
-        return enabled and vercel_environment == "preview"
+        return enabled and vercel_environment in ("preview", "production")
     return enabled
+
+
+def is_demo_user(user):
+    return bool(user and user.get("role") == "demo_viewer")
 
 
 def demo_session_secret():
     secret = os.environ.get("HRIS_DEMO_SESSION_SECRET", "").encode("utf-8")
     if len(secret) < 32:
-        raise DatabaseConfigurationError(
+        raise DemoConfigurationError(
             "HRIS_DEMO_SESSION_SECRET must contain at least 32 bytes when demo mode is enabled."
         )
     return secret
@@ -402,19 +410,18 @@ class HRISHandler(SimpleHTTPRequestHandler):
             self.send_json(403, {"error": "Request origin is not allowed."})
             return
         try:
-            if demo_mode_enabled() and parsed.path == "/api/auth/demo-login":
+            if parsed.path == "/api/auth/demo-login" and demo_mode_enabled():
                 self.read_json_body()
                 self.start_demo_session()
-            elif demo_mode_enabled() and parsed.path == "/api/auth/logout":
-                self.logout()
-            elif demo_mode_enabled():
-                self.send_json(403, {"error": "Demo mode is read-only."})
             elif parsed.path == "/api/auth/login":
                 self.login(self.read_json_body())
             elif parsed.path == "/api/auth/logout":
                 self.logout()
             elif parsed.path == "/api/employees":
                 self.create_employee(self.read_json_body())
+            elif demo_mode_enabled():
+                self.require_non_demo_user(self.require_user())
+                self.send_json(404, {"error": "Endpoint not found."})
             else:
                 self.send_json(404, {"error": "Endpoint not found."})
         except ValueError as error:
@@ -423,11 +430,10 @@ class HRISHandler(SimpleHTTPRequestHandler):
             self.send_json(403, {"error": str(error)})
         except LookupError as error:
             self.send_json(401, {"error": str(error)})
+        except DemoConfigurationError:
+            self.send_json(503, {"error": "Demo mode is not configured correctly."})
         except DatabaseConfigurationError:
-            if demo_mode_enabled():
-                self.send_json(503, {"error": "Demo mode is not configured correctly."})
-            else:
-                self.send_json(500, {"error": "Database operation failed."})
+            self.send_json(500, {"error": "Database operation failed."})
         except DATABASE_INTEGRITY_ERRORS as error:
             self.send_json(409, {"error": self.integrity_message(error)})
         except DATABASE_ERRORS:
@@ -438,11 +444,9 @@ class HRISHandler(SimpleHTTPRequestHandler):
         if not self.valid_origin():
             self.send_json(403, {"error": "Request origin is not allowed."})
             return
-        if demo_mode_enabled():
-            self.send_json(403, {"error": "Demo mode is read-only."})
-            return
         try:
             user = self.require_user()
+            self.require_non_demo_user(user)
             self.require_csrf()
             self.require_role(user, WRITE_ROLES)
             match = re.fullmatch(r"/api/employees/([^/]+)", parsed.path)
@@ -504,6 +508,8 @@ class HRISHandler(SimpleHTTPRequestHandler):
             self.send_json(401, {"error": str(error)})
         except ValueError as error:
             self.send_json(400, {"error": str(error)})
+        except DemoConfigurationError:
+            self.send_json(503, {"error": "Demo mode is not configured correctly."})
         except DATABASE_INTEGRITY_ERRORS as error:
             self.send_json(409, {"error": self.integrity_message(error)})
         except DATABASE_ERRORS:
@@ -514,11 +520,9 @@ class HRISHandler(SimpleHTTPRequestHandler):
         if not self.valid_origin():
             self.send_json(403, {"error": "Request origin is not allowed."})
             return
-        if demo_mode_enabled():
-            self.send_json(403, {"error": "Demo mode is read-only."})
-            return
         try:
             user = self.require_user()
+            self.require_non_demo_user(user)
             self.require_csrf()
             self.require_role(user, WRITE_ROLES)
             match = re.fullmatch(r"/api/employees/([^/]+)", parsed.path)
@@ -551,11 +555,10 @@ class HRISHandler(SimpleHTTPRequestHandler):
             self.send_json(403, {"error": str(error)})
         except LookupError as error:
             self.send_json(401, {"error": str(error)})
+        except DemoConfigurationError:
+            self.send_json(503, {"error": "Demo mode is not configured correctly."})
         except DatabaseConfigurationError:
-            if demo_mode_enabled():
-                self.send_json(503, {"error": "Demo mode is not configured correctly."})
-            else:
-                self.send_json(500, {"error": "Database operation failed."})
+            self.send_json(500, {"error": "Database operation failed."})
         except DATABASE_ERRORS:
             self.send_json(500, {"error": "Database operation failed."})
 
@@ -567,7 +570,7 @@ class HRISHandler(SimpleHTTPRequestHandler):
                     if user:
                         self.send_json(200, {
                             "authenticated": True,
-                            "demoMode": True,
+                            "demoMode": is_demo_user(user),
                             "user": user,
                         })
                     else:
@@ -583,7 +586,7 @@ class HRISHandler(SimpleHTTPRequestHandler):
                 self.send_json(200, {"authenticated": True, "user": user})
                 return
             user = self.require_user()
-            if demo_mode_enabled():
+            if is_demo_user(user):
                 if parsed.path == "/api/dashboard/summary":
                     self.demo_dashboard_summary()
                     return
@@ -614,11 +617,10 @@ class HRISHandler(SimpleHTTPRequestHandler):
             self.send_json(403, {"error": str(error)})
         except LookupError as error:
             self.send_json(401, {"error": str(error)})
+        except DemoConfigurationError:
+            self.send_json(503, {"error": "Demo mode is not configured correctly."})
         except DatabaseConfigurationError:
-            if demo_mode_enabled():
-                self.send_json(503, {"error": "Demo mode is not configured correctly."})
-            else:
-                self.send_json(500, {"error": "Database operation failed."})
+            self.send_json(500, {"error": "Database operation failed."})
         except DATABASE_ERRORS:
             self.send_json(500, {"error": "Database operation failed."})
 
@@ -771,6 +773,14 @@ class HRISHandler(SimpleHTTPRequestHandler):
                 "; Secure" if self.secure_cookie_attribute() else "",
             ),
         )
+        if demo_mode_enabled():
+            self.send_header(
+                "Set-Cookie",
+                "{}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0{}".format(
+                    DEMO_SESSION_COOKIE,
+                    "; Secure" if self.secure_cookie_attribute() else "",
+                ),
+            )
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.end_headers()
         self.wfile.write(json_bytes({
@@ -814,7 +824,7 @@ class HRISHandler(SimpleHTTPRequestHandler):
     def logout(self):
         user = self.require_user()
         self.require_csrf()
-        if demo_mode_enabled():
+        if is_demo_user(user):
             self.send_response(200)
             self.send_header(
                 "Set-Cookie",
@@ -854,29 +864,30 @@ class HRISHandler(SimpleHTTPRequestHandler):
 
     def current_user(self):
         if demo_mode_enabled():
-            secret = demo_session_secret()
             token = self.cookie_value(DEMO_SESSION_COOKIE)
-            parts = token.split(".")
-            if len(parts) != 3 or not parts[0].isdigit() or not parts[1]:
-                return None
-            payload = parts[0] + "." + parts[1]
-            signature = hmac.new(
-                secret, payload.encode("utf-8"), hashlib.sha256
-            ).hexdigest()
-            if not hmac.compare_digest(parts[2], signature):
-                return None
-            issued_at = int(parts[0])
-            now = int(time.time())
-            if issued_at > now + 60 or now - issued_at > DEMO_SESSION_HOURS * 60 * 60:
-                return None
-            csrf_token = hmac.new(
-                secret, ("csrf:" + payload).encode("utf-8"), hashlib.sha256
-            ).hexdigest()
-            return {
-                "username": "demo.viewer",
-                "role": "demo_viewer",
-                "csrfToken": csrf_token,
-            }
+            if token:
+                secret = demo_session_secret()
+                parts = token.split(".")
+                if len(parts) == 3 and parts[0].isdigit() and parts[1]:
+                    payload = parts[0] + "." + parts[1]
+                    signature = hmac.new(
+                        secret, payload.encode("utf-8"), hashlib.sha256
+                    ).hexdigest()
+                    issued_at = int(parts[0])
+                    now = int(time.time())
+                    if (
+                        hmac.compare_digest(parts[2], signature)
+                        and issued_at <= now + 60
+                        and now - issued_at <= DEMO_SESSION_HOURS * 60 * 60
+                    ):
+                        csrf_token = hmac.new(
+                            secret, ("csrf:" + payload).encode("utf-8"), hashlib.sha256
+                        ).hexdigest()
+                        return {
+                            "username": "demo.viewer",
+                            "role": "demo_viewer",
+                            "csrfToken": csrf_token,
+                        }
         token = self.cookie_value("hris_session")
         if not token:
             return None
@@ -913,6 +924,10 @@ class HRISHandler(SimpleHTTPRequestHandler):
     def require_role(self, user, allowed_roles):
         if user["role"] not in allowed_roles:
             raise PermissionError("Your account is not authorized for this action.")
+
+    def require_non_demo_user(self, user):
+        if is_demo_user(user):
+            raise PermissionError("Demo mode is read-only.")
 
     def require_csrf(self):
         user = self.current_user()
@@ -1050,6 +1065,7 @@ class HRISHandler(SimpleHTTPRequestHandler):
 
     def create_employee(self, payload):
         user = self.require_user()
+        self.require_non_demo_user(user)
         self.require_csrf()
         self.require_role(user, WRITE_ROLES)
         employee = validate_employee(payload)

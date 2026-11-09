@@ -358,13 +358,6 @@ class EmployeeApiTests(unittest.TestCase):
                 self.assertEqual(status, 200)
                 self.assertEqual(payload["employee"]["id"], "DEMO-001")
 
-                status, _ = self.request(
-                    "/api/auth/login",
-                    method="POST",
-                    payload={"email": "hr.demo@example.test", "password": "test-only-password"},
-                )
-                self.assertEqual(status, 403)
-
                 mutation_requests = (
                     ("POST", "/api/employees", self.employee_payload("DEMO-900")),
                     ("PUT", "/api/employees/DEMO-001", self.employee_payload("DEMO-001")),
@@ -387,17 +380,54 @@ class EmployeeApiTests(unittest.TestCase):
                 self.assertTrue(payload["demoMode"])
                 self.assertFalse(connect.called)
 
-    def test_demo_mode_is_only_enabled_on_vercel_preview(self):
+    def test_hr_admin_login_and_mutations_remain_available_when_demo_is_enabled(self):
         with patch.dict(os.environ, {
             "HRIS_DEMO_MODE": "1",
-            "VERCEL": "1",
-            "VERCEL_ENV": "preview",
+            "HRIS_DEMO_SESSION_SECRET": "test-demo-session-secret-" + ("x" * 32),
         }):
-            self.assertTrue(hris_server.demo_mode_enabled())
+            status, payload = self.request(
+                "/api/auth/login",
+                method="POST",
+                payload={"email": "hr.demo@example.test", "password": "test-only-password"},
+            )
+            self.assertEqual(status, 200)
+            self.csrf_token = payload["csrfToken"]
+
+            status, session = self.request("/api/auth/session")
+            self.assertEqual(status, 200)
+            self.assertTrue(session["authenticated"])
+            self.assertFalse(session["demoMode"])
+            self.assertEqual(session["user"]["role"], "hr_admin")
+
+            status, payload = self.request("/api/employees/DEMO-001")
+            self.assertEqual(status, 404)
+            status, payload = self.request("/api/employees/SAMPLE-001")
+            self.assertEqual(status, 200)
+
+            status, _ = self.request(
+                "/api/employees",
+                method="POST",
+                payload=self.employee_payload("SAMPLE-900"),
+            )
+            self.assertEqual(status, 201)
+            status, payload = self.request("/api/employees/SAMPLE-900", method="DELETE")
+            self.assertEqual(status, 200)
+            self.assertEqual(payload["deleted"], "SAMPLE-900")
+
+    def test_demo_mode_can_be_enabled_separately_for_vercel_environments(self):
+        for vercel_environment in ("preview", "production"):
+            with self.subTest(vercel_environment=vercel_environment):
+                with patch.dict(os.environ, {
+                    "HRIS_DEMO_MODE": "1",
+                    "VERCEL": "1",
+                    "VERCEL_ENV": vercel_environment,
+                }):
+                    self.assertTrue(hris_server.demo_mode_enabled())
+
         with patch.dict(os.environ, {
             "HRIS_DEMO_MODE": "1",
             "VERCEL": "1",
-            "VERCEL_ENV": "production",
+            "VERCEL_ENV": "development",
         }):
             self.assertFalse(hris_server.demo_mode_enabled())
         with patch.dict(os.environ, {
@@ -420,27 +450,31 @@ class EmployeeApiTests(unittest.TestCase):
                 self.assertEqual(payload["error"], "Demo mode is not configured correctly.")
                 self.assertFalse(connect.called)
 
-    def test_public_entry_redirects_only_when_demo_mode_is_enabled(self):
+    def test_public_entry_redirects_to_dashboard_when_demo_mode_is_enabled(self):
         class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
             def redirect_request(self, request, response, code, message, headers, new_url):
                 return None
 
         opener = urllib.request.build_opener(NoRedirectHandler())
-        with patch.dict(os.environ, {
-            "HRIS_DEMO_MODE": "1",
-            "HRIS_DEMO_SESSION_SECRET": "test-demo-session-secret-" + ("x" * 32),
-        }):
-            for path in ("/", "/api?__vercel_route=public-entry"):
-                request = urllib.request.Request(self.base_url + path)
-                try:
-                    response = opener.open(request, timeout=5)
-                except urllib.error.HTTPError as error:
-                    response = error
-                self.assertEqual(response.code, 302)
-                self.assertEqual(
-                    response.headers.get("Location"),
-                    "/employee-hub#home",
-                )
+        for vercel_environment in ("preview", "production"):
+            with self.subTest(vercel_environment=vercel_environment):
+                with patch.dict(os.environ, {
+                    "HRIS_DEMO_MODE": "1",
+                    "HRIS_DEMO_SESSION_SECRET": "test-demo-session-secret-" + ("x" * 32),
+                    "VERCEL": "1",
+                    "VERCEL_ENV": vercel_environment,
+                }):
+                    for path in ("/", "/api?__vercel_route=public-entry"):
+                        request = urllib.request.Request(self.base_url + path)
+                        try:
+                            response = opener.open(request, timeout=5)
+                        except urllib.error.HTTPError as error:
+                            response = error
+                        self.assertEqual(response.code, 302)
+                        self.assertEqual(
+                            response.headers.get("Location"),
+                            "/employee-hub#home",
+                        )
 
         request = urllib.request.Request(self.base_url + "/api?__vercel_route=public-entry")
         try:

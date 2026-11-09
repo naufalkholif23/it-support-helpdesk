@@ -140,21 +140,15 @@
                 });
                 if (!response.ok) throw new Error('Session verification failed.');
                 const session = await response.json();
-                if (session.authenticated) {
+                if (session.authenticated && !session.demoMode) {
                     window.location.replace(loginDestination());
                     return;
                 }
                 sessionCheck.classList.add('hidden');
                 form.classList.remove('hidden');
-                if (session.demoMode) {
-                    credentialFields.classList.add('hidden');
-                    demoLoginButton.classList.remove('hidden');
-                    demoLoginButton.focus();
-                } else {
-                    credentialFields.classList.remove('hidden');
-                    demoLoginButton.classList.add('hidden');
-                    emailInput.focus();
-                }
+                credentialFields.classList.remove('hidden');
+                demoLoginButton.classList.toggle('hidden', !session.demoMode);
+                emailInput.focus();
             } catch {
                 sessionCheck.replaceChildren(
                     document.createTextNode('Unable to connect to the server. Check your connection and try again.')

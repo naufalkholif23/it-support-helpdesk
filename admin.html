@@ -7,6 +7,9 @@
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <style>
         :root {
+            --transition-fast: 150ms ease;
+            --transition-normal: 220ms ease-out;
+            --transition-smooth: 260ms cubic-bezier(0.22, 1, 0.36, 1);
             --green: #00783d;
             --green-dark: #005d30;
             --green-soft: #e6f5ec;
@@ -34,6 +37,20 @@
         input,
         select {
             font: inherit;
+        }
+
+        button,
+        a,
+        input,
+        select {
+            transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+            transition-duration: var(--transition-fast);
+            transition-timing-function: ease-out;
+        }
+
+        button:not(:disabled):active,
+        a:active {
+            transform: scale(0.985);
         }
 
         .app {
@@ -74,6 +91,7 @@
             color: var(--muted);
             border-radius: 8px;
             text-decoration: none;
+            transition: color var(--transition-fast), background-color var(--transition-fast), transform var(--transition-fast);
         }
 
         .nav a:hover,
@@ -161,6 +179,13 @@
             background: var(--surface);
             border: 1px solid var(--line);
             border-radius: 12px;
+            transition: transform var(--transition-normal), box-shadow var(--transition-normal), border-color var(--transition-normal);
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            border-color: #cbd9d0;
+            box-shadow: 0 8px 20px -8px rgba(23, 34, 27, 0.18);
         }
 
         .stat-label {
@@ -283,8 +308,18 @@
                 z-index: 2;
                 inset: 0 auto 0 0;
                 transform: translateX(-100%);
-                transition: transform 0.2s ease;
+                transition: transform var(--transition-smooth);
                 box-shadow: 8px 0 24px rgba(23, 34, 27, 0.12);
+            }
+
+            @media (prefers-reduced-motion: reduce) {
+                *,
+                *::before,
+                *::after {
+                    animation-duration: 0.01ms !important;
+                    animation-iteration-count: 1 !important;
+                    transition-duration: 0.01ms !important;
+                }
             }
 
             .sidebar.open {
@@ -331,9 +366,6 @@
             <nav class="nav" aria-label="Admin navigation">
                 <a class="active" href="#dashboard">Dashboard</a>
                 <a href="#tickets">Tickets</a>
-                <a href="#requests">Requests</a>
-                <a href="#assets">Assets</a>
-                <a href="#analytics">Analytics</a>
                 <a href="index.html">Employee Hub</a>
             </nav>
         </aside>
@@ -356,8 +388,9 @@
             <section class="content" id="dashboard">
                 <div class="welcome">
                     <h2>Good morning, Admin</h2>
-                    <p>Monitor and manage Employee Hub tickets, requests, and assets from one place.</p>
+                    <p>Review and update Helpdesk tickets assigned to your staff role.</p>
                 </div>
+                <p id="admin-error" class="empty-state" role="alert"></p>
 
                 <section class="stats" aria-label="Ticket summary">
                     <article class="card">
@@ -422,46 +455,6 @@
     </div>
 
     <script>
-        function getCurrentUser() {
-            try {
-                return JSON.parse(sessionStorage.getItem('currentUser') || 'null');
-            } catch (error) {
-                console.warn('Unable to read current user from sessionStorage.', error);
-                return null;
-            }
-        }
-
-        function renderAdminUserProfile() {
-            const currentUser = getCurrentUser();
-            const nameEl = document.getElementById('admin-user-name');
-            const deptEl = document.getElementById('admin-user-dept');
-            if (!currentUser) return;
-            if (nameEl) nameEl.textContent = currentUser.name || 'Admin Demo';
-            if (deptEl) deptEl.textContent = `${currentUser.department || 'IT Support'} Department`;
-        }
-
-        function guardAdminAccess() {
-            const currentUser = getCurrentUser();
-            if (!currentUser) {
-                window.location.href = 'admin-login.html';
-                return true;
-            }
-            if (currentUser.role !== 'admin') {
-                document.body.innerHTML = `
-                    <div class="min-h-screen flex items-center justify-center bg-slate-100 p-6">
-                        <div class="max-w-xl w-full rounded-3xl bg-white border border-gray-200 shadow-xl p-8 text-center">
-                            <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-3xl">🚫</div>
-                            <h1 class="text-3xl font-extrabold text-gray-900">Access Denied</h1>
-                            <p class="mt-3 text-gray-600">Your account does not have permission to access the Admin Dashboard.</p>
-                            <button type="button" onclick="window.location.href='index.html'" class="mt-6 rounded-2xl bg-surya-green px-5 py-3 font-bold text-white shadow-sm hover:bg-green-800">Back to Employee Hub</button>
-                        </div>
-                    </div>
-                `;
-                return true;
-            }
-            return false;
-        }
-
         const menuButton = document.getElementById('menu-button');
         const sidebar = document.getElementById('sidebar');
         const searchInput = document.getElementById('ticket-search');
@@ -469,73 +462,96 @@
         const categoryFilter = document.getElementById('category-filter');
         const priorityFilter = document.getElementById('priority-filter');
         let rows = [];
+        let tickets = [];
+        let currentUser = null;
+        let csrfToken = '';
         const emptyState = document.getElementById('empty-state');
-        const ticketStorageKey = 'suryanesia_tickets';
         const ticketList = document.getElementById('ticket-list');
-
-        function getStoredTickets() {
-            try {
-                const storedTickets = JSON.parse(localStorage.getItem(ticketStorageKey) || '[]');
-                return Array.isArray(storedTickets) ? storedTickets : [];
-            } catch (error) {
-                console.error('Unable to read helpdesk tickets.', error);
-                return [];
-            }
-        }
+        const errorMessage = document.getElementById('admin-error');
 
         function formatUpdatedAt(value) {
             const date = new Date(value);
-            return Number.isNaN(date.getTime()) ? 'Recently' : date.toLocaleString();
+            return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString();
         }
 
         function normalizeStatus(status) {
-            const value = String(status || 'open').toLowerCase();
-            if (value.includes('progress')) return 'progress';
-            if (value.includes('pending')) return 'pending';
-            if (value.includes('resolved')) return 'resolved';
-            if (value.includes('closed')) return 'closed';
-            return 'open';
+            return ({
+                'In Progress': 'progress',
+                Pending: 'pending',
+                Resolved: 'resolved',
+                Closed: 'closed',
+                Open: 'open'
+            })[status] || 'open';
         }
 
-        function normalizePriority(priority) {
-            return String(priority || 'Medium');
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
         }
 
-        function updateTicket(ticketId, changes) {
-            const tickets = getStoredTickets();
-            const index = tickets.findIndex((ticket) => ticket.id === ticketId);
-            if (index < 0) return;
-            const updatedAt = new Date().toISOString();
-            const current = tickets[index];
-            tickets[index] = { ...current, ...changes, updatedAt };
-            if (changes.status && changes.status !== current.status) {
-                tickets[index].timeline = [...(current.timeline || []), { status: changes.status, at: updatedAt }];
+        async function api(path, options = {}) {
+            const requestOptions = {
+                credentials: 'same-origin',
+                cache: 'no-store',
+                ...options,
+                headers: { ...(options.headers || {}) }
+            };
+            const method = (requestOptions.method || 'GET').toUpperCase();
+            if (requestOptions.body) requestOptions.headers['Content-Type'] = 'application/json';
+            if (method !== 'GET' && csrfToken) {
+                requestOptions.headers['X-CSRF-Token'] = csrfToken;
             }
-            localStorage.setItem(ticketStorageKey, JSON.stringify(tickets));
-            renderStoredTickets();
-            updateSummary();
-            filterTickets();
+            let response;
+            try {
+                response = await fetch(path, requestOptions);
+            } catch {
+                throw new Error('Unable to connect to the local server.');
+            }
+            const payload = await response.json().catch(() => ({}));
+            if (response.status === 401) {
+                window.location.replace('login.html?reason=session-expired&next=%2Fadmin.html');
+                throw new Error('Your session has expired.');
+            }
+            if (!response.ok) throw new Error(payload.error || 'The request could not be completed.');
+            return payload;
         }
 
         function labelForStatus(status) {
-            switch (normalizeStatus(status)) {
-                case 'progress': return 'In progress';
-                case 'pending': return 'Pending';
-                case 'resolved': return 'Resolved';
-                case 'closed': return 'Closed';
-                default: return 'Open';
-            }
+            return status || 'Open';
         }
 
-        function renderStoredTickets() {
-            const storedTickets = getStoredTickets();
-            ticketList.innerHTML = '';
-            storedTickets.forEach((ticket) => {
+        function makeStatusEditor(ticket) {
+            const select = document.createElement('select');
+            select.className = 'status-editor';
+            select.setAttribute('aria-label', `Update status for ${ticket.id}`);
+            ['Open', 'In Progress', 'Pending', 'Resolved', 'Closed'].forEach((value) => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = value;
+                option.selected = value === ticket.status;
+                select.append(option);
+            });
+            return select;
+        }
+
+        function makeTextEditor(className, label, value, placeholder) {
+            const input = document.createElement('input');
+            input.className = className;
+            input.value = value || '';
+            input.placeholder = placeholder;
+            input.setAttribute('aria-label', label);
+            input.style.width = className === 'pic-editor' ? '110px' : '150px';
+            input.style.marginLeft = '6px';
+            return input;
+        }
+
+        function renderTickets() {
+            ticketList.replaceChildren();
+            tickets.forEach((ticket) => {
                 const row = document.createElement('tr');
                 const normalizedStatus = normalizeStatus(ticket.status);
                 row.dataset.status = normalizedStatus;
-                row.dataset.ticketId = ticket.id;
-                const values = [`#${ticket.id}`, ticket.name || ticket.employeeName || 'Employee', ticket.department || '-', ticket.category || 'Other', ticket.priority || 'Medium', ticket.subject, labelForStatus(ticket.status), ticket.pic || 'Unassigned', formatUpdatedAt(ticket.createdAt || ticket.createdDate)];
+                const values = [ticket.id, ticket.name || 'Employee', ticket.department || '-', ticket.category || 'Other', ticket.priority || 'Medium', ticket.subject, labelForStatus(ticket.status), ticket.pic || 'Unassigned', formatUpdatedAt(ticket.createdAt)];
                 values.forEach((value, index) => {
                     const cell = document.createElement('td');
                     if (index === 6) {
@@ -549,32 +565,72 @@
                     row.appendChild(cell);
                 });
                 const manageCell = document.createElement('td');
-                manageCell.innerHTML = `<select aria-label="Update status" class="status-editor" data-ticket-id="${ticket.id}"><option ${ticket.status === 'Open' ? 'selected' : ''}>Open</option><option ${ticket.status === 'In Progress' ? 'selected' : ''}>In Progress</option><option ${ticket.status === 'Pending' ? 'selected' : ''}>Pending</option><option ${ticket.status === 'Resolved' ? 'selected' : ''}>Resolved</option><option ${ticket.status === 'Closed' ? 'selected' : ''}>Closed</option></select><input class="pic-editor" data-ticket-id="${ticket.id}" value="${ticket.pic || ''}" placeholder="PIC" aria-label="Assign PIC" style="width:110px;margin-left:6px"><input class="resolution-editor" data-ticket-id="${ticket.id}" value="${ticket.resolution || ''}" placeholder="Resolution notes" aria-label="Resolution notes" style="width:150px;margin-left:6px"><button type="button" class="save-ticket" data-ticket-id="${ticket.id}" style="margin-left:6px;color:var(--green);font-weight:700">Save</button>`;
+                const status = makeStatusEditor(ticket);
+                const pic = makeTextEditor('pic-editor', 'Assign PIC', ticket.pic, 'PIC');
+                const resolution = makeTextEditor('resolution-editor', 'Resolution notes', ticket.resolution, 'Resolution notes');
+                const save = document.createElement('button');
+                save.type = 'button';
+                save.className = 'save-ticket';
+                save.dataset.ticketId = ticket.id;
+                save.textContent = 'Save';
+                save.style.cssText = 'margin-left:6px;color:var(--green);font-weight:700';
+                manageCell.append(status, pic, resolution, save);
                 row.appendChild(manageCell);
-                ticketList.prepend(row);
+                ticketList.append(row);
             });
             rows = Array.from(ticketList.querySelectorAll('tr'));
+            filterTickets();
         }
 
-        function updateSummary() {
-            const allRows = Array.from(ticketList.querySelectorAll('tr'));
-            const counts = allRows.reduce((summary, row) => {
-                summary.total += 1;
-                summary[row.dataset.status] = (summary[row.dataset.status] || 0) + 1;
-                return summary;
-            }, { total: 0, open: 0, progress: 0, pending: 0, resolved: 0, closed: 0 });
-
-            document.getElementById('total-tickets').textContent = counts.total;
-            document.getElementById('open-tickets').textContent = counts.open;
-            document.getElementById('progress-tickets').textContent = counts.progress;
-            document.getElementById('pending-tickets').textContent = counts.pending;
-            document.getElementById('resolved-tickets').textContent = counts.resolved;
-            document.getElementById('closed-tickets').textContent = counts.closed;
+        function renderSummary(summary) {
+            const counts = summary.byStatus || {};
+            document.getElementById('total-tickets').textContent = summary.total || 0;
+            document.getElementById('open-tickets').textContent = counts.Open || 0;
+            document.getElementById('progress-tickets').textContent = counts['In Progress'] || 0;
+            document.getElementById('pending-tickets').textContent = counts.Pending || 0;
+            document.getElementById('resolved-tickets').textContent = counts.Resolved || 0;
+            document.getElementById('closed-tickets').textContent = counts.Closed || 0;
         }
 
-        document.getElementById('logout-button').addEventListener('click', () => {
-            sessionStorage.removeItem('currentUser');
-            window.location.href = 'admin-login.html';
+        async function loadTickets() {
+            const result = await api('/api/helpdesk/tickets');
+            tickets = result.tickets || [];
+            renderTickets();
+        }
+
+        async function saveTicket(ticketId, button) {
+            const row = button.closest('tr');
+            const payload = {
+                status: row.querySelector('.status-editor').value,
+                pic: row.querySelector('.pic-editor').value.trim() || null,
+                resolution: row.querySelector('.resolution-editor').value.trim() || null
+            };
+            button.disabled = true;
+            try {
+                await api(`/api/helpdesk/tickets/${encodeURIComponent(ticketId)}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(payload)
+                });
+                const [summary] = await Promise.all([
+                    api('/api/helpdesk/dashboard/summary'),
+                    loadTickets()
+                ]);
+                renderSummary(summary);
+                errorMessage.style.display = 'none';
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                if (button.isConnected) button.disabled = false;
+            }
+        }
+
+        document.getElementById('logout-button').addEventListener('click', async () => {
+            try {
+                await api('/api/auth/logout', { method: 'POST', body: '{}' });
+                window.location.replace('login.html');
+            } catch (error) {
+                showError(error.message);
+            }
         });
 
         menuButton.addEventListener('click', () => {
@@ -608,18 +664,37 @@
         ticketList.addEventListener('click', (event) => {
             const button = event.target.closest('.save-ticket');
             if (!button) return;
-            const id = button.dataset.ticketId;
-            const status = ticketList.querySelector(`.status-editor[data-ticket-id="${id}"]`).value;
-            const pic = ticketList.querySelector(`.pic-editor[data-ticket-id="${id}"]`).value.trim() || null;
-            const resolution = ticketList.querySelector(`.resolution-editor[data-ticket-id="${id}"]`).value.trim() || null;
-            updateTicket(id, { status, pic, resolution });
+            saveTicket(button.dataset.ticketId, button);
         });
 
-        if (!guardAdminAccess()) {
-            renderAdminUserProfile();
-            renderStoredTickets();
-            updateSummary();
+        async function initializeAdmin() {
+            try {
+                const session = await api('/api/auth/session');
+                if (!session.authenticated) {
+                    window.location.replace('login.html?next=%2Fadmin.html');
+                    return;
+                }
+                currentUser = session.user;
+                const roles = currentUser.roles || [currentUser.role];
+                if (session.demoMode || !roles.some((role) => ['it_support', 'hr_admin', 'system_admin'].includes(role))) {
+                    showError('Your account does not have Helpdesk staff access.');
+                    ticketList.replaceChildren();
+                    return;
+                }
+                csrfToken = currentUser.csrfToken || '';
+                document.getElementById('admin-user-name').textContent = currentUser.username;
+                document.getElementById('admin-user-dept').textContent = roles.join(', ');
+                document.querySelector('.welcome h2').textContent = `Welcome, ${currentUser.username}`;
+                const [summary] = await Promise.all([
+                    api('/api/helpdesk/dashboard/summary'),
+                    loadTickets()
+                ]);
+                renderSummary(summary);
+            } catch (error) {
+                showError(error.message);
+            }
         }
+        initializeAdmin();
     </script>
 </body>
 </html>

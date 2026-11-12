@@ -1,352 +1,135 @@
-import hashlib
-import hmac
-import ipaddress
-import json
 import os
 import re
 import secrets
 import sqlite3
 import threading
-import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse, urlsplit
+from urllib.parse import parse_qs, urlparse
 
-from dotenv import load_dotenv
-
-
-BASE_DIR = Path(__file__).resolve().parent
-load_dotenv(BASE_DIR / ".env.local", override=False, interpolate=False)
-DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
-DATABASE_PATH = Path(os.environ.get(
-    "HRIS_DATABASE_PATH", Path.home() / ".suryanesia-hris" / "hris.sqlite3"
-)).resolve()
-HOST = os.environ.get("HRIS_HOST", "127.0.0.1")
-PORT = int(os.environ.get("HRIS_PORT", "8000"))
-SESSION_HOURS = 8
-DEMO_SESSION_HOURS = 8
-DEMO_SESSION_COOKIE = "hris_demo_session"
-PBKDF2_ITERATIONS = 310000
-READ_ROLES = {"hr_admin", "system_admin"}
-WRITE_ROLES = {"hr_admin", "system_admin"}
-DEMO_ACCOUNTS = {
-    "employee": ("employee.demo", "employee"),
-    "manager": ("manager.demo", "manager"),
-    "hr_admin": ("hr.demo", "hr_admin"),
-    "payroll_admin": ("payroll.demo", "payroll_admin"),
-    "system_admin": ("system.demo", "system_admin"),
-}
-DEMO_EMPLOYEES = [
-    ("SAMPLE-001", "Demo Employee Alpha", "alpha@example.test", "People Operations", "Sample Coordinator", "active"),
-    ("SAMPLE-002", "Demo Employee Bravo", "bravo@example.test", "IT Support", "Sample Specialist", "active"),
-    ("SAMPLE-003", "Demo Employee Charlie", "charlie@example.test", "Finance", "Sample Analyst", "inactive"),
-]
-PUBLIC_DEMO_EMPLOYEES = (
-    ("DEMO-001", "Demo Employee Alpha", "alpha.demo@example.test", "People Operations", "Sample Coordinator", "active"),
-    ("DEMO-002", "Demo Employee Bravo", "bravo.demo@example.test", "IT Support", "Sample Specialist", "active"),
-    ("DEMO-003", "Demo Employee Charlie", "charlie.demo@example.test", "Finance", "Sample Analyst", "inactive"),
+from backend.app.api.responses import HttpUtilitiesMixin, json_bytes
+from backend.app.core.config import (
+    BASE_DIR,
+    DATABASE_PATH,
+    DATABASE_URL,
+    HOST,
+    PORT,
+    POSTGRES_EXPECTED_DATABASE,
+    POSTGRES_EXPECTED_HOSTNAME,
+    POSTGRES_SSLROOTCERT,
 )
+from backend.app.core.exceptions import (
+    DatabaseConfigurationError,
+    DemoConfigurationError,
+)
+from backend.app.database.connection import (
+    DATABASE_ERRORS,
+    DATABASE_INTEGRITY_ERRORS,
+    POSTGRES_ERRORS,
+    POSTGRES_INTEGRITY_ERRORS,
+    PostgresConnection,
+    dict_row,
+    psycopg,
+    connect_database as _connect_database,
+    validate_postgres_database_url,
+)
+from backend.app.modules.auth.demo import demo_mode_enabled, demo_session_secret
+from backend.app.modules.auth.origin import (
+    is_valid_origin,
+    normalize_origin,
+    secure_cookie_attribute,
+    vercel_origin,
+)
+from backend.app.modules.auth.password import PBKDF2_ITERATIONS, hash_password
+from backend.app.modules.auth.permissions import (
+    READ_ROLES,
+    WRITE_ROLES,
+    is_demo_user,
+)
+from backend.app.modules.auth.service import AuthServiceMixin
+from backend.app.modules.auth.session import (
+    DEMO_SESSION_COOKIE,
+    DEMO_SESSION_HOURS,
+    SESSION_HOURS,
+    SessionHandlerMixin,
+)
+from backend.app.modules.auth.validators import validate_login_identifier
+from backend.app.modules.dashboard import service as dashboard_service
+from backend.app.modules.employees import repository as employee_repository
+from backend.app.database.initialize import initialize_database as _initialize_database
+from backend.app.database.seed import (
+    DEMO_ACCOUNTS,
+    DEMO_EMPLOYEES,
+    PUBLIC_DEMO_EMPLOYEES,
+    demo_employee_records,
+)
+from backend.app.modules.employees import service as employee_service
+from backend.app.modules.employees.validators import validate_employee
+from backend.app.modules.helpdesk import service as helpdesk_service
+from backend.app.modules.employee_portal import service as employee_portal_service
+from backend.app.modules.quick_access import service as quick_access_service
+
 
 DATABASE_LOCK = threading.RLock()
 
-class DatabaseConfigurationError(RuntimeError):
-    pass
-
-
-class DemoConfigurationError(DatabaseConfigurationError):
-    pass
-
-
-try:
-    import psycopg
-    from psycopg.rows import dict_row
-except ImportError:
-    psycopg = None
-    dict_row = None
-    POSTGRES_ERRORS = ()
-    POSTGRES_INTEGRITY_ERRORS = ()
-else:
-    POSTGRES_ERRORS = (psycopg.Error,)
-    POSTGRES_INTEGRITY_ERRORS = (psycopg.IntegrityError,)
-
-DATABASE_ERRORS = (sqlite3.Error, DatabaseConfigurationError) + POSTGRES_ERRORS
-DATABASE_INTEGRITY_ERRORS = (sqlite3.IntegrityError,) + POSTGRES_INTEGRITY_ERRORS
-
-
-def demo_mode_enabled():
-    enabled = os.environ.get("HRIS_DEMO_MODE", "").strip().lower() in (
-        "1", "true", "yes", "on"
-    )
-    vercel_environment = os.environ.get("VERCEL_ENV", "").strip().lower()
-    if vercel_environment or os.environ.get("VERCEL"):
-        return enabled and vercel_environment in ("preview", "production")
-    return enabled
-
-
-def is_demo_user(user):
-    return bool(user and user.get("role") == "demo_viewer")
-
-
-def demo_session_secret():
-    secret = os.environ.get("HRIS_DEMO_SESSION_SECRET", "").encode("utf-8")
-    if len(secret) < 32:
-        raise DemoConfigurationError(
-            "HRIS_DEMO_SESSION_SECRET must contain at least 32 bytes when demo mode is enabled."
-        )
-    return secret
-
-
-def demo_employee_records():
-    now = datetime.now(timezone.utc).isoformat()
-    return [
-        {
-            "id": employee_id,
-            "name": name,
-            "email": email,
-            "department": department,
-            "position": position,
-            "status": status,
-            "updated_at": now,
-            "created_at": now,
-        }
-        for employee_id, name, email, department, position, status in PUBLIC_DEMO_EMPLOYEES
-    ]
-
-
-class PostgresConnection:
-    def __init__(self, connection):
-        self.connection = connection
-
-    def execute(self, statement, parameters=()):
-        return self.connection.execute(statement.replace("?", "%s"), parameters)
-
-    def commit(self):
-        self.connection.commit()
-
-    def rollback(self):
-        self.connection.rollback()
-
-    def close(self):
-        self.connection.close()
-
 
 def connect_database():
-    if os.environ.get("VERCEL") and not DATABASE_URL:
-        raise DatabaseConfigurationError("DATABASE_URL is required on Vercel.")
-    if DATABASE_URL:
-        if psycopg is None:
-            raise DatabaseConfigurationError(
-                "Install the PostgreSQL driver from requirements.txt."
-            )
-        connection = psycopg.connect(
-            DATABASE_URL,
-            connect_timeout=5,
-            row_factory=dict_row,
-            sslmode="require",
-        )
-        return PostgresConnection(connection)
-
-    DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(str(DATABASE_PATH), timeout=10)
-    connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA foreign_keys = ON")
-    connection.execute("PRAGMA journal_mode = WAL")
-    return connection
-
-
-def hash_password(password, salt=None):
-    salt = salt or secrets.token_bytes(16)
-    password_hash = hashlib.pbkdf2_hmac(
-        "sha256", password.encode("utf-8"), salt, PBKDF2_ITERATIONS
+    return _connect_database(
+        DATABASE_URL,
+        DATABASE_PATH,
+        vercel=bool(os.environ.get("VERCEL")),
+        render=os.environ.get("HRIS_DEPLOYMENT", "").strip().lower() == "render",
+        expected_hostname=POSTGRES_EXPECTED_HOSTNAME,
+        expected_database=POSTGRES_EXPECTED_DATABASE,
+        sslrootcert=POSTGRES_SSLROOTCERT,
     )
-    return salt.hex(), password_hash.hex()
 
 
 def initialize_database():
-    if DATABASE_URL:
-        raise RuntimeError(
-            "PostgreSQL schemas must be installed using the checked-in migration."
-        )
-    with DATABASE_LOCK:
-        connection = connect_database()
-        try:
-            connection.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS users (
-                    username TEXT PRIMARY KEY,
-                    email TEXT,
-                    role TEXT NOT NULL CHECK (role IN (
-                        'employee', 'manager', 'hr_admin', 'payroll_admin', 'system_admin'
-                    )),
-                    password_salt TEXT NOT NULL,
-                    password_hash TEXT NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS employees (
-                    employee_id TEXT PRIMARY KEY,
-                    full_name TEXT NOT NULL,
-                    email TEXT NOT NULL COLLATE NOCASE UNIQUE,
-                    department TEXT NOT NULL,
-                    position TEXT NOT NULL,
-                    status TEXT NOT NULL CHECK (status IN ('active', 'inactive')),
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_employees_department
-                    ON employees(department);
-                CREATE INDEX IF NOT EXISTS idx_employees_status
-                    ON employees(status);
-                CREATE INDEX IF NOT EXISTS idx_employees_name
-                    ON employees(full_name);
-                CREATE TABLE IF NOT EXISTS sessions (
-                    token_hash TEXT PRIMARY KEY,
-                    username TEXT NOT NULL REFERENCES users(username) ON DELETE CASCADE,
-                    csrf_token TEXT NOT NULL,
-                    expires_at TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);
-                CREATE TABLE IF NOT EXISTS audit_logs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    actor TEXT NOT NULL,
-                    action TEXT NOT NULL,
-                    employee_id TEXT NOT NULL,
-                    occurred_at TEXT NOT NULL,
-                    details TEXT NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_audit_logs_employee
-                    ON audit_logs(employee_id, occurred_at);
-                """
-            )
-            user_columns = {
-                row["name"] for row in connection.execute("PRAGMA table_info(users)").fetchall()
-            }
-            if "email" not in user_columns:
-                connection.execute("ALTER TABLE users ADD COLUMN email TEXT")
-            connection.execute(
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower "
-                "ON users (LOWER(email)) WHERE email IS NOT NULL"
-            )
-
-            has_users = connection.execute("SELECT 1 FROM users LIMIT 1").fetchone()
-            if not has_users:
-                configured_password = os.environ.get("HRIS_DEMO_PASSWORD")
-                print("\nSynthetic development accounts (not for production):")
-                for label, (username, role) in DEMO_ACCOUNTS.items():
-                    password = configured_password or secrets.token_urlsafe(18)
-                    salt, password_hash = hash_password(password)
-                    connection.execute(
-                        "INSERT INTO users (username, email, role, password_salt, password_hash) "
-                        "VALUES (?, ?, ?, ?, ?)",
-                        (username, username + "@example.test", role, salt, password_hash),
-                    )
-                    print("  {} / {}".format(username + "@example.test", password))
-                if configured_password:
-                    print("  Passwords were set using HRIS_DEMO_PASSWORD.")
-                else:
-                    print("  Save these generated passwords; they are shown only during first setup.")
-                print()
-            else:
-                for username, role in DEMO_ACCOUNTS.values():
-                    connection.execute(
-                        "UPDATE users SET email = ? WHERE username = ? AND role = ? AND email IS NULL",
-                        (username + "@example.test", username, role),
-                    )
-
-            has_employees = connection.execute("SELECT 1 FROM employees LIMIT 1").fetchone()
-            if not has_employees:
-                now = datetime.now(timezone.utc).isoformat()
-                connection.executemany(
-                    "INSERT INTO employees "
-                    "(employee_id, full_name, email, department, position, status, created_at, updated_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    [row + (now, now) for row in DEMO_EMPLOYEES],
-                )
-            connection.commit()
-        finally:
-            connection.close()
-
-
-def json_bytes(value):
-    return json.dumps(value, ensure_ascii=False).encode("utf-8")
-
-
-def validate_login_identifier(identifier):
-    if not isinstance(identifier, str):
-        raise ValueError("Email and password are required.")
-    identifier = identifier.strip().lower()
-    if (
-        len(identifier) <= 254
-        and re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", identifier)
-    ):
-        return "email", identifier
-    if re.fullmatch(r"[a-z0-9._-]{3,50}", identifier):
-        return "username", identifier
-    raise ValueError("Enter a valid work email address or username.")
+    return _initialize_database(
+        connect_database=connect_database,
+        database_lock=DATABASE_LOCK,
+        database_url=DATABASE_URL,
+        demo_password=os.environ.get("HRIS_DEMO_PASSWORD"),
+    )
 
 
 def employee_summary(connection, include_monthly_records=False):
-    statement = (
-        "SELECT COUNT(*) AS total, "
-        "COALESCE(SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END), 0) AS active, "
-        "COALESCE(SUM(CASE WHEN status = 'inactive' THEN 1 ELSE 0 END), 0) AS inactive, "
-        "COUNT(DISTINCT department) AS departments"
+    return employee_repository.employee_summary(
+        connection, include_monthly_records=include_monthly_records
     )
-    parameters = ()
-    if include_monthly_records:
-        now = datetime.now(timezone.utc)
-        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        next_month = (
-            month_start.replace(year=month_start.year + 1, month=1)
-            if month_start.month == 12
-            else month_start.replace(month=month_start.month + 1)
-        )
-        statement += (
-            ", COALESCE(SUM(CASE WHEN created_at >= ? AND created_at < ? "
-            "THEN 1 ELSE 0 END), 0) AS new_this_month"
-        )
-        parameters = (month_start.isoformat(), next_month.isoformat())
-    return dict(connection.execute(statement + " FROM employees", parameters).fetchone())
 
 
-def validate_employee(payload, employee_id=None):
-    if not isinstance(payload, dict):
-        raise ValueError("Request body must be a JSON object.")
-
-    fields = {
-        "id": payload.get("id", employee_id),
-        "name": payload.get("name"),
-        "email": payload.get("email"),
-        "department": payload.get("department"),
-        "position": payload.get("position"),
-        "status": payload.get("status", "active"),
-    }
-    limits = {"id": 30, "name": 100, "email": 254, "department": 100, "position": 100}
-    for field, maximum in limits.items():
-        value = fields[field]
-        if not isinstance(value, str):
-            raise ValueError("{} is required.".format(field))
-        value = value.strip()
-        if not value or len(value) > maximum:
-            raise ValueError("{} must be between 1 and {} characters.".format(field, maximum))
-        fields[field] = value
-
-    fields["id"] = fields["id"].upper()
-    fields["email"] = fields["email"].lower()
-    if not re.fullmatch(r"[A-Z0-9][A-Z0-9-]{1,29}", fields["id"]):
-        raise ValueError("ID may contain only letters, numbers, and hyphens.")
-    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", fields["email"]):
-        raise ValueError("Enter a valid email address.")
-    if fields["status"] not in ("active", "inactive"):
-        raise ValueError("Status must be active or inactive.")
-    return fields
-
-
-class HRISHandler(SimpleHTTPRequestHandler):
+class HRISHandler(
+    HttpUtilitiesMixin,
+    AuthServiceMixin,
+    SessionHandlerMixin,
+    SimpleHTTPRequestHandler,
+):
     server_version = "SuryanesiaHRIS"
     sys_version = ""
+    database_lock = DATABASE_LOCK
+    render_static_files = frozenset({
+        "/admin-login.html",
+        "/admin.html",
+        "/favicon.ico",
+        "/index.html",
+        "/login.html",
+        "/logo-green.png",
+        "/platform.html",
+    })
+    render_static_aliases = {
+        "/employee-hub": "/index.html",
+        "/hris": "/index.html",
+        "/hris/": "/index.html",
+    }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(BASE_DIR), **kwargs)
+
+    def database_connection(self):
+        return connect_database()
 
     def log_message(self, format_string, *args):
         path = urlparse(self.path).path
@@ -355,31 +138,29 @@ class HRISHandler(SimpleHTTPRequestHandler):
         status = args[1] if len(args) > 1 else ""
         print("{} {} {}".format(self.command or "HTTP", path, status).strip())
 
-    def end_headers(self):
-        self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Referrer-Policy", "same-origin")
-        self.send_header("X-Frame-Options", "DENY")
-        self.send_header("Cache-Control", "no-store")
-        super().end_headers()
-
-    def redirect(self, destination):
-        self.send_response(302)
-        self.send_header("Location", destination)
-        self.send_header("Content-Length", "0")
-        self.end_headers()
-
     def do_GET(self):
         parsed = urlparse(self.path)
+        if parsed.path == "/api/health":
+            self.send_json(200, {"status": "ok"})
+            return
         if parsed.path == "/api/public-entry":
             destination = (
                 "/employee-hub#home"
-                if demo_mode_enabled()
-                else "/index.html"
+                if demo_mode_enabled() or self.current_user()
+                else "/login.html"
             )
             self.redirect(destination)
             return
         if parsed.path.startswith("/api/"):
             self.handle_api_get(parsed)
+            return
+        if parsed.path == "/":
+            destination = (
+                "/employee-hub#home"
+                if demo_mode_enabled() or self.current_user()
+                else "/login.html"
+            )
+            self.redirect(destination)
             return
         try:
             DATABASE_PATH.relative_to(BASE_DIR)
@@ -390,16 +171,29 @@ class HRISHandler(SimpleHTTPRequestHandler):
             if parsed.path == database_url or parsed.path.startswith(database_url + "-"):
                 self.send_error(404)
                 return
-        if parsed.path == "/":
-            if demo_mode_enabled():
-                self.redirect("/employee-hub#home")
-                return
-            self.path = "/platform.html"
-        elif parsed.path == "/employee-hub":
+        if parsed.path == "/employee-hub":
             self.path = "/index.html"
         elif parsed.path in ("/hris", "/hris/"):
             self.path = "/index.html"
+        if os.environ.get("HRIS_DEPLOYMENT", "").strip().lower() == "render":
+            target = self.render_static_aliases.get(parsed.path, parsed.path)
+            if target not in self.render_static_files:
+                self.send_error(404)
+                return
+            self.path = target + (("?" + parsed.query) if parsed.query else "")
         super().do_GET()
+
+    def do_HEAD(self):
+        if os.environ.get("HRIS_DEPLOYMENT", "").strip().lower() != "render":
+            super().do_HEAD()
+            return
+        parsed = urlparse(self.path)
+        target = self.render_static_aliases.get(parsed.path, parsed.path)
+        if target not in self.render_static_files:
+            self.send_error(404)
+            return
+        self.path = target + (("?" + parsed.query) if parsed.query else "")
+        super().do_HEAD()
 
     def do_POST(self):
         parsed = urlparse(self.path)
@@ -419,6 +213,45 @@ class HRISHandler(SimpleHTTPRequestHandler):
                 self.logout()
             elif parsed.path == "/api/employees":
                 self.create_employee(self.read_json_body())
+            elif parsed.path == "/api/admin/quick-access":
+                user = self.require_user()
+                self.require_non_demo_user(user)
+                self.require_csrf()
+                self.require_role(user, WRITE_ROLES)
+                item = quick_access_service.create_item(
+                    self.read_json_body(), user, connect_database, DATABASE_LOCK
+                )
+                self.send_json(201, {"item": item})
+            elif parsed.path == "/api/helpdesk/tickets":
+                user = self.require_user()
+                self.require_non_demo_user(user)
+                self.require_csrf()
+                ticket = helpdesk_service.create_ticket(
+                    self.read_json_body(), user, connect_database, DATABASE_LOCK
+                )
+                self.send_json(201, {"ticket": ticket})
+            elif re.fullmatch(r"/api/helpdesk/tickets/([^/]+)/comments", parsed.path):
+                user = self.require_user()
+                self.require_non_demo_user(user)
+                self.require_csrf()
+                match = re.fullmatch(
+                    r"/api/helpdesk/tickets/([^/]+)/comments", parsed.path
+                )
+                payload = self.read_json_body()
+                if not isinstance(payload, dict):
+                    self.send_json(400, {"error": "Request body must be a JSON object."})
+                    return
+                ticket = helpdesk_service.add_comment(
+                    match.group(1),
+                    payload.get("comment"),
+                    user,
+                    connect_database,
+                    DATABASE_LOCK,
+                )
+                if not ticket:
+                    self.send_json(404, {"error": "Ticket not found."})
+                    return
+                self.send_json(201, {"ticket": ticket})
             elif demo_mode_enabled():
                 self.require_non_demo_user(self.require_user())
                 self.send_json(404, {"error": "Endpoint not found."})
@@ -446,6 +279,40 @@ class HRISHandler(SimpleHTTPRequestHandler):
             return
         try:
             user = self.require_user()
+            quick_access_match = re.fullmatch(
+                r"/api/admin/quick-access/([^/]+)", parsed.path
+            )
+            if quick_access_match:
+                self.require_non_demo_user(user)
+                self.require_csrf()
+                self.require_role(user, WRITE_ROLES)
+                item = quick_access_service.update_item(
+                    quick_access_match.group(1),
+                    self.read_json_body(),
+                    connect_database,
+                    DATABASE_LOCK,
+                )
+                if not item:
+                    self.send_json(404, {"error": "Quick Access item not found."})
+                    return
+                self.send_json(200, {"item": item})
+                return
+            if re.fullmatch(r"/api/helpdesk/tickets/[^/]+", parsed.path):
+                self.require_non_demo_user(user)
+                self.require_csrf()
+                ticket_id = parsed.path.rsplit("/", 1)[-1]
+                ticket = helpdesk_service.update_ticket(
+                    ticket_id,
+                    self.read_json_body(),
+                    user,
+                    connect_database,
+                    DATABASE_LOCK,
+                )
+                if not ticket:
+                    self.send_json(404, {"error": "Ticket not found."})
+                    return
+                self.send_json(200, {"ticket": ticket})
+                return
             self.require_non_demo_user(user)
             self.require_csrf()
             self.require_role(user, WRITE_ROLES)
@@ -455,53 +322,14 @@ class HRISHandler(SimpleHTTPRequestHandler):
                 return
             employee_id = match.group(1)
             payload = self.read_json_body()
-            employee = validate_employee(payload, employee_id)
-            expected_updated_at = payload.get("updated_at")
-            if expected_updated_at is not None and (
-                not isinstance(expected_updated_at, str) or not expected_updated_at
-            ):
-                raise ValueError("updated_at must be a non-empty string.")
-            updated_at = datetime.now(timezone.utc).isoformat()
-            with DATABASE_LOCK:
-                connection = connect_database()
-                try:
-                    cursor = connection.execute(
-                        "UPDATE employees SET employee_id = ?, full_name = ?, email = ?, "
-                        "department = ?, position = ?, status = ?, updated_at = ? "
-                        "WHERE employee_id = ?" + (" AND updated_at = ?" if expected_updated_at else ""),
-                        (
-                            employee["id"], employee["name"], employee["email"],
-                            employee["department"], employee["position"], employee["status"],
-                            updated_at, employee_id,
-                        ) + ((expected_updated_at,) if expected_updated_at else ()),
-                    )
-                    if cursor.rowcount == 0:
-                        current = connection.execute(
-                            "SELECT updated_at FROM employees WHERE employee_id = ?",
-                            (employee_id,),
-                        ).fetchone()
-                        connection.rollback()
-                        if current and expected_updated_at:
-                            self.send_json(
-                                409,
-                                {"error": "Employee record changed. Reload it before saving."},
-                            )
-                        else:
-                            self.send_json(404, {"error": "Employee not found."})
-                        return
-                    connection.execute(
-                        "INSERT INTO audit_logs (actor, action, employee_id, occurred_at, details) "
-                        "VALUES (?, ?, ?, ?, ?)",
-                        (
-                            user["username"], "employee.updated", employee_id, updated_at,
-                            json.dumps({"fields": ["name", "email", "department", "position", "status"]}),
-                        ),
-                    )
-                    connection.commit()
-                finally:
-                    connection.close()
-            employee["updated_at"] = updated_at
-            self.send_json(200, {"employee": employee})
+            status, response = employee_service.update_employee(
+                employee_id,
+                payload,
+                user,
+                connect_database,
+                DATABASE_LOCK,
+            )
+            self.send_json(status, response)
         except PermissionError as error:
             self.send_json(403, {"error": str(error)})
         except LookupError as error:
@@ -525,40 +353,87 @@ class HRISHandler(SimpleHTTPRequestHandler):
             self.require_non_demo_user(user)
             self.require_csrf()
             self.require_role(user, WRITE_ROLES)
+            quick_access_match = re.fullmatch(
+                r"/api/admin/quick-access/([^/]+)", parsed.path
+            )
+            if quick_access_match:
+                item_id = quick_access_match.group(1)
+                if not quick_access_service.delete_item(
+                    item_id, connect_database, DATABASE_LOCK
+                ):
+                    self.send_json(404, {"error": "Quick Access item not found."})
+                    return
+                self.send_json(200, {"deleted": item_id})
+                return
             match = re.fullmatch(r"/api/employees/([^/]+)", parsed.path)
             if not match:
                 self.send_json(404, {"error": "Endpoint not found."})
                 return
-            with DATABASE_LOCK:
-                connection = connect_database()
-                try:
-                    cursor = connection.execute(
-                        "DELETE FROM employees WHERE employee_id = ?", (match.group(1),)
-                    )
-                    if cursor.rowcount == 0:
-                        connection.rollback()
-                        self.send_json(404, {"error": "Employee not found."})
-                        return
-                    connection.execute(
-                        "INSERT INTO audit_logs (actor, action, employee_id, occurred_at, details) "
-                        "VALUES (?, ?, ?, ?, ?)",
-                        (
-                            user["username"], "employee.deleted", match.group(1),
-                            datetime.now(timezone.utc).isoformat(), "{}",
-                        ),
-                    )
-                    connection.commit()
-                finally:
-                    connection.close()
-            self.send_json(200, {"deleted": match.group(1)})
+            employee_id = match.group(1)
+            if not employee_service.delete_employee(
+                employee_id,
+                user,
+                connect_database,
+                DATABASE_LOCK,
+            ):
+                self.send_json(404, {"error": "Employee not found."})
+                return
+            self.send_json(200, {"deleted": employee_id})
         except PermissionError as error:
             self.send_json(403, {"error": str(error)})
         except LookupError as error:
             self.send_json(401, {"error": str(error)})
+        except ValueError as error:
+            self.send_json(400, {"error": str(error)})
         except DemoConfigurationError:
             self.send_json(503, {"error": "Demo mode is not configured correctly."})
         except DatabaseConfigurationError:
             self.send_json(500, {"error": "Database operation failed."})
+        except DATABASE_ERRORS:
+            self.send_json(500, {"error": "Database operation failed."})
+
+    def do_PATCH(self):
+        parsed = urlparse(self.path)
+        if not self.valid_origin():
+            self.send_json(403, {"error": "Request origin is not allowed."})
+            return
+        try:
+            user = self.require_user()
+            self.require_non_demo_user(user)
+            self.require_csrf()
+            self.require_role(user, WRITE_ROLES)
+            match = re.fullmatch(
+                r"/api/admin/quick-access/([^/]+)/status", parsed.path
+            )
+            if not match:
+                self.send_json(404, {"error": "Endpoint not found."})
+                return
+            payload = self.read_json_body()
+            if not isinstance(payload, dict):
+                self.send_json(400, {"error": "Request body must be a JSON object."})
+                return
+            item = quick_access_service.set_status(
+                match.group(1),
+                payload.get("status"),
+                connect_database,
+                DATABASE_LOCK,
+            )
+            if not item:
+                self.send_json(404, {"error": "Quick Access item not found."})
+                return
+            self.send_json(200, {"item": item})
+        except PermissionError as error:
+            self.send_json(403, {"error": str(error)})
+        except LookupError as error:
+            self.send_json(401, {"error": str(error)})
+        except ValueError as error:
+            self.send_json(400, {"error": str(error)})
+        except DemoConfigurationError:
+            self.send_json(503, {"error": "Demo mode is not configured correctly."})
+        except DatabaseConfigurationError:
+            self.send_json(500, {"error": "Database operation failed."})
+        except DATABASE_INTEGRITY_ERRORS as error:
+            self.send_json(409, {"error": self.integrity_message(error)})
         except DATABASE_ERRORS:
             self.send_json(500, {"error": "Database operation failed."})
 
@@ -586,6 +461,56 @@ class HRISHandler(SimpleHTTPRequestHandler):
                 self.send_json(200, {"authenticated": True, "user": user})
                 return
             user = self.require_user()
+            if parsed.path == "/api/portal/profile":
+                if is_demo_user(user):
+                    self.send_json(
+                        200,
+                        {"account": user, "employee": None, "demoMode": True},
+                    )
+                    return
+                profile = employee_portal_service.get_profile(
+                    user, connect_database, DATABASE_LOCK
+                )
+                if not profile:
+                    self.send_json(404, {"error": "Profile not found."})
+                    return
+                self.send_json(200, profile)
+                return
+            if parsed.path == "/api/quick-access":
+                if is_demo_user(user):
+                    self.send_json(200, {"items": []})
+                    return
+                items = quick_access_service.list_items(
+                    connect_database, DATABASE_LOCK, active_only=True
+                )
+                self.send_json(200, {"items": items})
+                return
+            quick_access_match = re.fullmatch(
+                r"/api/quick-access/([^/]+)", parsed.path
+            )
+            if quick_access_match:
+                if is_demo_user(user):
+                    self.send_json(404, {"error": "Quick Access item not found."})
+                    return
+                item = quick_access_service.get_item(
+                    quick_access_match.group(1),
+                    connect_database,
+                    DATABASE_LOCK,
+                    active_only=True,
+                )
+                if not item:
+                    self.send_json(404, {"error": "Quick Access item not found."})
+                    return
+                self.send_json(200, {"item": item})
+                return
+            if parsed.path == "/api/admin/quick-access":
+                self.require_non_demo_user(user)
+                self.require_role(user, WRITE_ROLES)
+                items = quick_access_service.list_items(
+                    connect_database, DATABASE_LOCK
+                )
+                self.send_json(200, {"items": items})
+                return
             if is_demo_user(user):
                 if parsed.path == "/api/dashboard/summary":
                     self.demo_dashboard_summary()
@@ -597,6 +522,31 @@ class HRISHandler(SimpleHTTPRequestHandler):
                 if match:
                     self.demo_get_employee(match.group(1))
                     return
+                self.send_json(404, {"error": "Endpoint not found."})
+                return
+            if parsed.path == "/api/helpdesk/dashboard/summary":
+                result = helpdesk_service.dashboard_summary(
+                    user, connect_database, DATABASE_LOCK
+                )
+                self.send_json(200, result)
+                return
+            if parsed.path == "/api/helpdesk/tickets":
+                tickets = helpdesk_service.list_tickets(
+                    user, connect_database, DATABASE_LOCK, parse_qs(parsed.query)
+                )
+                self.send_json(200, {"tickets": tickets})
+                return
+            match = re.fullmatch(r"/api/helpdesk/tickets/([^/]+)", parsed.path)
+            if match:
+                ticket = helpdesk_service.get_ticket(
+                    match.group(1), user, connect_database, DATABASE_LOCK
+                )
+                if not ticket:
+                    self.send_json(404, {"error": "Ticket not found."})
+                    return
+                self.send_json(200, {"ticket": ticket})
+                return
+            if parsed.path.startswith("/api/helpdesk/"):
                 self.send_json(404, {"error": "Endpoint not found."})
                 return
             if parsed.path == "/api/dashboard/summary":
@@ -617,6 +567,8 @@ class HRISHandler(SimpleHTTPRequestHandler):
             self.send_json(403, {"error": str(error)})
         except LookupError as error:
             self.send_json(401, {"error": str(error)})
+        except ValueError as error:
+            self.send_json(400, {"error": str(error)})
         except DemoConfigurationError:
             self.send_json(503, {"error": "Demo mode is not configured correctly."})
         except DatabaseConfigurationError:
@@ -725,513 +677,53 @@ class HRISHandler(SimpleHTTPRequestHandler):
             return
         self.send_json(200, {"employee": employee})
 
-    def login(self, payload):
-        identifier = payload.get("email") if isinstance(payload, dict) else None
-        password = payload.get("password") if isinstance(payload, dict) else None
-        identifier_type, identifier = validate_login_identifier(identifier)
-        if not isinstance(password, str) or not password:
-            raise ValueError("Email and password are required.")
-        column = "email" if identifier_type == "email" else "username"
-        with DATABASE_LOCK:
-            connection = connect_database()
-            try:
-                row = connection.execute(
-                    "SELECT username, role, password_salt, password_hash "
-                    "FROM users WHERE LOWER({}) = ?".format(column),
-                    (identifier,),
-                ).fetchone()
-            finally:
-                connection.close()
-        if not row:
-            self.send_json(401, {"error": "Invalid email or password."})
-            return
-        _, candidate_hash = hash_password(password, bytes.fromhex(row["password_salt"]))
-        if not hmac.compare_digest(candidate_hash, row["password_hash"]):
-            self.send_json(401, {"error": "Invalid email or password."})
-            return
-
-        token = secrets.token_urlsafe(32)
-        csrf_token = secrets.token_urlsafe(24)
-        expires_at = (datetime.now(timezone.utc) + timedelta(hours=SESSION_HOURS)).isoformat()
-        with DATABASE_LOCK:
-            connection = connect_database()
-            try:
-                connection.execute(
-                    "INSERT INTO sessions (token_hash, username, csrf_token, expires_at) "
-                    "VALUES (?, ?, ?, ?)",
-                    (hashlib.sha256(token.encode("utf-8")).hexdigest(), row["username"], csrf_token, expires_at),
-                )
-                connection.commit()
-            finally:
-                connection.close()
-        self.send_response(200)
-        self.send_header(
-            "Set-Cookie",
-            "hris_session={}; HttpOnly; SameSite=Strict; Path=/; Max-Age={}{}".format(
-                token,
-                SESSION_HOURS * 60 * 60,
-                "; Secure" if self.secure_cookie_attribute() else "",
-            ),
-        )
-        if demo_mode_enabled():
-            self.send_header(
-                "Set-Cookie",
-                "{}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0{}".format(
-                    DEMO_SESSION_COOKIE,
-                    "; Secure" if self.secure_cookie_attribute() else "",
-                ),
-            )
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(json_bytes({
-            "authenticated": True,
-            "user": {"username": row["username"], "role": row["role"]},
-            "csrfToken": csrf_token,
-        }))
-
-    def start_demo_session(self):
-        issued_at = str(int(time.time()))
-        nonce = secrets.token_urlsafe(24)
-        payload = issued_at + "." + nonce
-        secret = demo_session_secret()
-        signature = hmac.new(secret, payload.encode("utf-8"), hashlib.sha256).hexdigest()
-        csrf_token = hmac.new(
-            secret, ("csrf:" + payload).encode("utf-8"), hashlib.sha256
-        ).hexdigest()
-        token = payload + "." + signature
-        self.send_response(200)
-        self.send_header(
-            "Set-Cookie",
-            "{}={}; HttpOnly; SameSite=Strict; Path=/; Max-Age={}{}".format(
-                DEMO_SESSION_COOKIE,
-                token,
-                DEMO_SESSION_HOURS * 60 * 60,
-                "; Secure" if self.secure_cookie_attribute() else "",
-            ),
-        )
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Cache-Control", "no-store")
-        body = json_bytes({
-            "authenticated": True,
-            "demoMode": True,
-            "user": {"username": "demo.viewer", "role": "demo_viewer"},
-            "csrfToken": csrf_token,
-        })
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def logout(self):
-        user = self.require_user()
-        self.require_csrf()
-        if is_demo_user(user):
-            self.send_response(200)
-            self.send_header(
-                "Set-Cookie",
-                "{}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0{}".format(
-                    DEMO_SESSION_COOKIE,
-                    "; Secure" if self.secure_cookie_attribute() else "",
-                ),
-            )
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Cache-Control", "no-store")
-            body = json_bytes({"authenticated": False, "demoMode": True})
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-            return
-        token = self.cookie_value("hris_session")
-        with DATABASE_LOCK:
-            connection = connect_database()
-            try:
-                connection.execute(
-                    "DELETE FROM sessions WHERE token_hash = ?",
-                    (hashlib.sha256(token.encode("utf-8")).hexdigest(),),
-                )
-                connection.commit()
-            finally:
-                connection.close()
-        self.send_response(200)
-        self.send_header(
-            "Set-Cookie",
-            "hris_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0{}".format(
-                "; Secure" if self.secure_cookie_attribute() else ""
-            ),
-        )
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(json_bytes({"authenticated": False}))
-
-    def current_user(self):
-        if demo_mode_enabled():
-            token = self.cookie_value(DEMO_SESSION_COOKIE)
-            if token:
-                secret = demo_session_secret()
-                parts = token.split(".")
-                if len(parts) == 3 and parts[0].isdigit() and parts[1]:
-                    payload = parts[0] + "." + parts[1]
-                    signature = hmac.new(
-                        secret, payload.encode("utf-8"), hashlib.sha256
-                    ).hexdigest()
-                    issued_at = int(parts[0])
-                    now = int(time.time())
-                    if (
-                        hmac.compare_digest(parts[2], signature)
-                        and issued_at <= now + 60
-                        and now - issued_at <= DEMO_SESSION_HOURS * 60 * 60
-                    ):
-                        csrf_token = hmac.new(
-                            secret, ("csrf:" + payload).encode("utf-8"), hashlib.sha256
-                        ).hexdigest()
-                        return {
-                            "username": "demo.viewer",
-                            "role": "demo_viewer",
-                            "csrfToken": csrf_token,
-                        }
-        token = self.cookie_value("hris_session")
-        if not token:
-            return None
-        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
-        with DATABASE_LOCK:
-            connection = connect_database()
-            try:
-                row = connection.execute(
-                    "SELECT users.username, users.role, sessions.csrf_token, sessions.expires_at "
-                    "FROM sessions JOIN users ON users.username = sessions.username "
-                    "WHERE sessions.token_hash = ?",
-                    (token_hash,),
-                ).fetchone()
-                if row and row["expires_at"] > datetime.now(timezone.utc).isoformat():
-                    return {
-                        "username": row["username"],
-                        "role": row["role"],
-                        "csrfToken": row["csrf_token"],
-                    }
-                if row:
-                    connection.execute("DELETE FROM sessions WHERE token_hash = ?", (token_hash,))
-                    connection.commit()
-                    self.expired_session = True
-                return None
-            finally:
-                connection.close()
-
-    def require_user(self):
-        user = self.current_user()
-        if not user:
-            raise LookupError("Sign in to access employee records.")
-        return user
-
-    def require_role(self, user, allowed_roles):
-        if user["role"] not in allowed_roles:
-            raise PermissionError("Your account is not authorized for this action.")
-
-    def require_non_demo_user(self, user):
-        if is_demo_user(user):
-            raise PermissionError("Demo mode is read-only.")
-
-    def require_csrf(self):
-        user = self.current_user()
-        supplied = self.headers.get("X-CSRF-Token", "")
-        if not user or not hmac.compare_digest(supplied, user["csrfToken"]):
-            raise PermissionError("CSRF validation failed.")
-
     def list_employees(self, query):
-        search = query.get("search", [""])[0].strip()[:100]
-        department = query.get("department", [""])[0].strip()[:100]
-        position = query.get("position", [""])[0].strip()[:100]
-        status = query.get("status", [""])[0].strip().lower()
-        sort_by = query.get("sortBy", ["name"])[0].strip().lower()
-        sort_order = query.get("sortOrder", ["asc"])[0].strip().lower()
         try:
-            page = max(1, int(query.get("page", ["1"])[0]))
-            page_size = min(100, max(1, int(query.get("pageSize", ["25"])[0])))
-        except ValueError:
-            self.send_json(400, {"error": "Page and pageSize must be integers."})
-            return
-        if status and status not in ("active", "inactive"):
-            self.send_json(400, {"error": "Status must be active or inactive."})
-            return
-        sort_columns = {
-            "name": "LOWER(full_name)",
-            "id": "LOWER(employee_id)",
-            "department": "LOWER(department)",
-            "position": "LOWER(position)",
-            "status": "status",
-        }
-        if sort_by not in sort_columns or sort_order not in ("asc", "desc"):
-            self.send_json(400, {"error": "Sort field or direction is invalid."})
-            return
-
-        conditions = []
-        values = []
-        if search:
-            pattern = "%" + search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
-            conditions.append(
-                "(LOWER(employee_id) LIKE LOWER(?) ESCAPE '\\' "
-                "OR LOWER(full_name) LIKE LOWER(?) ESCAPE '\\' "
-                "OR LOWER(email) LIKE LOWER(?) ESCAPE '\\' "
-                "OR LOWER(department) LIKE LOWER(?) ESCAPE '\\' "
-                "OR LOWER(position) LIKE LOWER(?) ESCAPE '\\')"
+            result = employee_service.list_employees(
+                query, connect_database, DATABASE_LOCK
             )
-            values.extend([pattern] * 5)
-        if department:
-            conditions.append("department = ?")
-            values.append(department)
-        if position:
-            conditions.append("position = ?")
-            values.append(position)
-        if status:
-            conditions.append("status = ?")
-            values.append(status)
-        where = " WHERE " + " AND ".join(conditions) if conditions else ""
-
-        with DATABASE_LOCK:
-            connection = connect_database()
-            try:
-                total = connection.execute(
-                    "SELECT COUNT(*) AS count FROM employees" + where, values
-                ).fetchone()["count"]
-                summary = employee_summary(connection)
-                departments = [
-                    row["department"]
-                    for row in connection.execute(
-                        "SELECT department FROM employees "
-                        "GROUP BY department ORDER BY LOWER(department), department"
-                    ).fetchall()
-                ]
-                positions = [
-                    row["position"]
-                    for row in connection.execute(
-                        "SELECT position FROM employees "
-                        "GROUP BY position ORDER BY LOWER(position), position"
-                    ).fetchall()
-                ]
-                rows = connection.execute(
-                    "SELECT employee_id AS id, full_name AS name, email, department, position, status, updated_at "
-                    "FROM employees" + where + " ORDER BY {} {}, LOWER(employee_id) ASC ".format(
-                        sort_columns[sort_by], sort_order.upper()
-                    ) +
-                    "LIMIT ? OFFSET ?",
-                    values + [page_size, (page - 1) * page_size],
-                ).fetchall()
-            finally:
-                connection.close()
-        self.send_json(200, {
-            "employees": [dict(row) for row in rows],
-            "total": total,
-            "page": page,
-            "pageSize": page_size,
-            "summary": dict(summary),
-            "departments": departments,
-            "positions": positions,
-        })
+        except ValueError as error:
+            self.send_json(400, {"error": str(error)})
+            return
+        self.send_json(200, result)
 
     def dashboard_summary(self):
-        with DATABASE_LOCK:
-            connection = connect_database()
-            try:
-                summary = employee_summary(connection, include_monthly_records=True)
-                by_status = connection.execute(
-                    "SELECT status, COUNT(*) AS total FROM employees "
-                    "GROUP BY status ORDER BY status"
-                ).fetchall()
-                by_department = connection.execute(
-                    "SELECT department, COUNT(*) AS total FROM employees "
-                    "GROUP BY department ORDER BY total DESC, LOWER(department)"
-                ).fetchall()
-            finally:
-                connection.close()
-        self.send_json(200, {
-            "summary": summary,
-            "byStatus": [dict(row) for row in by_status],
-            "byDepartment": [dict(row) for row in by_department],
-        })
+        result = dashboard_service.get_summary(connect_database, DATABASE_LOCK)
+        self.send_json(200, result)
 
     def get_employee(self, employee_id):
-        with DATABASE_LOCK:
-            connection = connect_database()
-            try:
-                row = connection.execute(
-                    "SELECT employee_id AS id, full_name AS name, email, department, position, status, updated_at "
-                    "FROM employees WHERE employee_id = ?",
-                    (employee_id,),
-                ).fetchone()
-            finally:
-                connection.close()
-        if not row:
+        employee = employee_service.get_employee(
+            employee_id, connect_database, DATABASE_LOCK
+        )
+        if not employee:
             self.send_json(404, {"error": "Employee not found."})
             return
-        self.send_json(200, {"employee": dict(row)})
+        self.send_json(200, {"employee": employee})
 
     def create_employee(self, payload):
         user = self.require_user()
         self.require_non_demo_user(user)
         self.require_csrf()
         self.require_role(user, WRITE_ROLES)
-        employee = validate_employee(payload)
-        now = datetime.now(timezone.utc).isoformat()
-        with DATABASE_LOCK:
-            connection = connect_database()
-            try:
-                connection.execute(
-                    "INSERT INTO employees "
-                    "(employee_id, full_name, email, department, position, status, created_at, updated_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    (
-                        employee["id"], employee["name"], employee["email"],
-                        employee["department"], employee["position"], employee["status"], now, now,
-                    ),
-                )
-                connection.execute(
-                    "INSERT INTO audit_logs (actor, action, employee_id, occurred_at, details) "
-                    "VALUES (?, ?, ?, ?, ?)",
-                    (
-                        user["username"], "employee.created", employee["id"], now,
-                        json.dumps({"fields": ["name", "email", "department", "position", "status"]}),
-                    ),
-                )
-                connection.commit()
-            finally:
-                connection.close()
+        employee = employee_service.create_employee(
+            payload, user, connect_database, DATABASE_LOCK
+        )
         self.send_json(201, {"employee": employee})
 
     def valid_origin(self):
-        origin = self.headers.get("Origin")
-        if not origin:
-            return False
-        is_vercel_deployment = any(
-            os.environ.get(name)
-            for name in (
-                "VERCEL",
-                "VERCEL_URL",
-                "VERCEL_PROJECT_PRODUCTION_URL",
-            )
-        )
-        normalized_origin = self.normalize_origin(
-            origin, require_https=is_vercel_deployment
-        )
-        if not normalized_origin:
-            return False
-
-        configured_origins = [
-            item.strip()
-            for item in os.environ.get("HRIS_ALLOWED_ORIGINS", "").split(",")
-            if item.strip()
-        ]
-        allowed_origins = set()
-        for configured_origin in configured_origins:
-            normalized = self.normalize_origin(
-                configured_origin, require_https=is_vercel_deployment
-            )
-            if normalized:
-                allowed_origins.add(normalized)
-
-        if is_vercel_deployment:
-            deployment_origin = self.vercel_origin(os.environ.get("VERCEL_URL", ""))
-            if deployment_origin:
-                allowed_origins.add(deployment_origin)
-            if os.environ.get("VERCEL_ENV") == "production":
-                production_origin = self.vercel_origin(
-                    os.environ.get("VERCEL_PROJECT_PRODUCTION_URL", "")
-                )
-                if production_origin:
-                    allowed_origins.add(production_origin)
-        elif not configured_origins:
-            local_origin = self.normalize_origin("http://{}:{}".format(HOST, PORT))
-            if local_origin:
-                allowed_origins.add(local_origin)
-        return normalized_origin in allowed_origins
+        return is_valid_origin(self.headers.get("Origin"), HOST, PORT)
 
     @staticmethod
     def normalize_origin(value, require_https=False):
-        try:
-            parsed = urlsplit(value.strip())
-            hostname = parsed.hostname
-            port = parsed.port
-        except (AttributeError, ValueError):
-            return None
-        scheme = parsed.scheme.lower()
-        if (
-            scheme not in ("http", "https")
-            or (require_https and scheme != "https")
-            or not hostname
-            or parsed.username is not None
-            or parsed.password is not None
-            or parsed.path not in ("", "/")
-            or parsed.query
-            or parsed.fragment
-        ):
-            return None
-        hostname = hostname.lower()
-        if ":" in hostname:
-            try:
-                hostname = str(ipaddress.IPv6Address(hostname))
-            except ipaddress.AddressValueError:
-                return None
-            hostname = "[" + hostname + "]"
-        elif not re.fullmatch(
-            r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
-            r"(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*",
-            hostname,
-        ):
-            return None
-        if port is not None and port != (443 if scheme == "https" else 80):
-            hostname += ":" + str(port)
-        return scheme + "://" + hostname
+        return normalize_origin(value, require_https=require_https)
 
     @staticmethod
     def vercel_origin(domain):
-        domain = domain.strip().lower()
-        if (
-            not domain
-            or not re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?", domain)
-            or ".." in domain
-        ):
-            return None
-        return "https://" + domain
+        return vercel_origin(domain)
 
     @staticmethod
     def secure_cookie_attribute():
-        return os.environ.get("VERCEL_ENV") in ("production", "preview")
-
-    def read_json_body(self):
-        try:
-            length = int(self.headers.get("Content-Length", "0"))
-        except ValueError:
-            raise ValueError("Invalid content length.")
-        if length < 1 or length > 16384:
-            raise ValueError("Request body must be between 1 and 16384 bytes.")
-        try:
-            return json.loads(self.rfile.read(length).decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            raise ValueError("Request body must contain valid JSON.")
-
-    def cookie_value(self, name):
-        for part in self.headers.get("Cookie", "").split(";"):
-            key, separator, value = part.strip().partition("=")
-            if separator and key == name:
-                return value
-        return ""
-
-    def integrity_message(self, error):
-        message = str(error)
-        if "employees.email" in message or "idx_employees_email_lower" in message:
-            return "Email is already assigned to another employee."
-        if (
-            "employees.employee_id" in message
-            or "employees_pkey" in message
-            or "employee_id" in message
-        ):
-            return "Employee ID already exists."
-        return "The record conflicts with an existing record."
-
-    def send_json(self, status, payload):
-        body = json_bytes(payload)
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        return secure_cookie_attribute()
 
 
 def main():

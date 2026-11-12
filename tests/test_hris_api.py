@@ -39,7 +39,7 @@ class PostgresAdapterTests(unittest.TestCase):
 
 
 @contextlib.contextmanager
-def test_database_connection():
+def database_connection_context():
     connection = hris_server.connect_database()
     try:
         yield connection
@@ -106,6 +106,11 @@ class EmployeeApiTests(unittest.TestCase):
         cls.temp_directory.cleanup()
 
     def setUp(self):
+        with database_connection_context() as connection:
+            connection.execute("DELETE FROM helpdesk_tickets")
+        self.reset_client()
+
+    def reset_client(self):
         self.cookies = http.cookiejar.CookieJar()
         self.client = urllib.request.build_opener(
             urllib.request.HTTPCookieProcessor(self.cookies)
@@ -119,7 +124,7 @@ class EmployeeApiTests(unittest.TestCase):
         headers = {}
         if body is not None:
             headers["Content-Type"] = "application/json"
-        if method in ("POST", "PUT", "DELETE"):
+        if method in ("POST", "PUT", "PATCH", "DELETE"):
             if include_origin:
                 headers["Origin"] = origin or self.base_url
             if csrf and self.csrf_token:
@@ -131,7 +136,10 @@ class EmployeeApiTests(unittest.TestCase):
             response = self.client.open(request, timeout=5)
         except urllib.error.HTTPError as error:
             response = error
-        return response.code, json.loads(response.read().decode("utf-8"))
+        try:
+            return response.code, json.loads(response.read().decode("utf-8"))
+        finally:
+            response.close()
 
     def login(self, username):
         status, payload = self.request(
@@ -152,6 +160,144 @@ class EmployeeApiTests(unittest.TestCase):
             "position": "Sample Tester",
             "status": "active",
         }
+
+    def helpdesk_payload(self):
+        return {
+            "name": "Synthetic Employee",
+            "email": "employee@example.test",
+            "department": "Testing",
+            "category": "IT Support",
+            "priority": "High",
+            "subject": "Synthetic laptop test",
+            "description": "A test-only ticket description.",
+        }
+
+    def test_helpdesk_employee_ticket_and_it_support_workflow(self):
+        self.login("employee.demo")
+        status, created = self.request(
+            "/api/helpdesk/tickets",
+            method="POST",
+            payload=self.helpdesk_payload(),
+        )
+        self.assertEqual(status, 201)
+        ticket = created["ticket"]
+        ticket_id = ticket["id"]
+        self.assertEqual(ticket["status"], "Open")
+        self.assertEqual(ticket["reporter_username"], "employee.demo")
+        self.assertEqual(ticket["timeline"][0]["type"], "created")
+
+        status, listed = self.request("/api/helpdesk/tickets")
+        self.assertEqual(status, 200)
+        self.assertEqual([item["id"] for item in listed["tickets"]], [ticket_id])
+        status, comment = self.request(
+            "/api/helpdesk/tickets/{}/comments".format(ticket_id),
+            method="POST",
+            payload={"comment": "Employee follow-up from the test."},
+        )
+        self.assertEqual(status, 201)
+        self.assertEqual(comment["ticket"]["comments"][0]["author"], "employee.demo")
+
+        self.reset_client()
+        self.login("manager.demo")
+        status, denied = self.request("/api/helpdesk/tickets/{}".format(ticket_id))
+        self.assertEqual(status, 404)
+        status, listed = self.request("/api/helpdesk/tickets")
+        self.assertEqual(status, 200)
+        self.assertEqual(listed["tickets"], [])
+        status, _ = self.request(
+            "/api/helpdesk/tickets/{}".format(ticket_id),
+            method="PUT",
+            payload={"status": "Resolved"},
+        )
+        self.assertEqual(status, 403)
+
+        self.reset_client()
+        user = self.login("it.support")
+        self.assertIn("it_support", user["roles"])
+        status, summary = self.request("/api/helpdesk/dashboard/summary")
+        self.assertEqual(status, 200)
+        self.assertEqual(summary["total"], 1)
+        self.assertEqual(summary["byStatus"]["Open"], 1)
+        status, listed = self.request("/api/helpdesk/tickets?search=laptop&priority=High")
+        self.assertEqual(status, 200)
+        self.assertEqual([item["id"] for item in listed["tickets"]], [ticket_id])
+        status, updated = self.request(
+            "/api/helpdesk/tickets/{}".format(ticket_id),
+            method="PUT",
+            payload={
+                "status": "In Progress",
+                "pic": "it.support",
+                "resolution": "Investigating",
+                "comment": "Assigned to local IT Support.",
+            },
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(updated["ticket"]["status"], "In Progress")
+        self.assertEqual(updated["ticket"]["pic"], "it.support")
+        self.assertEqual(len(updated["ticket"]["comments"]), 2)
+
+        self.reset_client()
+        self.login("employee.demo")
+        status, owned = self.request("/api/helpdesk/tickets/{}".format(ticket_id))
+        self.assertEqual(status, 200)
+        self.assertEqual(owned["ticket"]["status"], "In Progress")
+
+    def test_helpdesk_routes_require_authentication_and_csrf(self):
+        status, _ = self.request("/api/helpdesk/tickets")
+        self.assertEqual(status, 401)
+        self.login("employee.demo")
+        request = urllib.request.Request(
+            self.base_url + "/api/helpdesk/tickets",
+            data=json.dumps(self.helpdesk_payload()).encode("utf-8"),
+            headers={"Content-Type": "application/json", "Origin": self.base_url},
+            method="POST",
+        )
+        try:
+            response = self.client.open(request, timeout=5)
+        except urllib.error.HTTPError as error:
+            response = error
+        try:
+            self.assertEqual(response.code, 403)
+            self.assertIn("CSRF", response.read().decode("utf-8"))
+        finally:
+            response.close()
+
+    def test_helpdesk_comment_rejects_non_object_json(self):
+        self.login("employee.demo")
+        status, created = self.request(
+            "/api/helpdesk/tickets",
+            method="POST",
+            payload=self.helpdesk_payload(),
+        )
+        self.assertEqual(status, 201)
+        status, payload = self.request(
+            "/api/helpdesk/tickets/{}/comments".format(created["ticket"]["id"]),
+            method="POST",
+            payload=[],
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(payload["error"], "Request body must be a JSON object.")
+
+    def test_helpdesk_list_rejects_invalid_filters(self):
+        self.login("employee.demo")
+        status, payload = self.request("/api/helpdesk/tickets?status=Unreviewed")
+        self.assertEqual(status, 400)
+        self.assertEqual(payload["error"], "Status is invalid.")
+
+    def test_employee_portal_profile_uses_only_the_signed_in_account(self):
+        self.login("employee.demo")
+        status, profile = self.request("/api/portal/profile")
+        self.assertEqual(status, 200)
+        self.assertEqual(profile["account"]["username"], "employee.demo")
+        self.assertEqual(profile["employee"]["id"], "SAMPLE-001")
+        self.assertEqual(profile["employee"]["name"], "Demo Employee Alpha")
+
+        self.reset_client()
+        self.login("manager.demo")
+        status, profile = self.request("/api/portal/profile")
+        self.assertEqual(status, 200)
+        self.assertEqual(profile["account"]["username"], "manager.demo")
+        self.assertIsNone(profile["employee"])
 
     def test_directory_requires_authentication(self):
         status, payload = self.request("/api/employees")
@@ -241,7 +387,7 @@ class EmployeeApiTests(unittest.TestCase):
         try:
             with contextlib.redirect_stdout(io.StringIO()):
                 hris_server.initialize_database()
-            with test_database_connection() as connection:
+            with database_connection_context() as connection:
                 row = connection.execute(
                     "SELECT email FROM users WHERE username = 'hr.demo'"
                 ).fetchone()
@@ -270,7 +416,7 @@ class EmployeeApiTests(unittest.TestCase):
         self.assertIn("byStatus", payload)
         self.assertNotIn("employees", payload)
         self.assertNotIn("email", payload)
-        with test_database_connection() as connection:
+        with database_connection_context() as connection:
             expected_total = connection.execute(
                 "SELECT COUNT(*) FROM employees"
             ).fetchone()[0]
@@ -289,7 +435,7 @@ class EmployeeApiTests(unittest.TestCase):
             if month_start.month == 12
             else month_start.replace(month=month_start.month + 1)
         )
-        with test_database_connection() as connection:
+        with database_connection_context() as connection:
             expected_new_this_month = connection.execute(
                 "SELECT COUNT(*) FROM employees WHERE created_at >= ? AND created_at < ?",
                 (month_start.isoformat(), next_month.isoformat()),
@@ -357,6 +503,10 @@ class EmployeeApiTests(unittest.TestCase):
                 status, payload = self.request("/api/employees/DEMO-001")
                 self.assertEqual(status, 200)
                 self.assertEqual(payload["employee"]["id"], "DEMO-001")
+
+                status, payload = self.request("/api/quick-access")
+                self.assertEqual(status, 200)
+                self.assertEqual(payload["items"], [])
 
                 mutation_requests = (
                     ("POST", "/api/employees", self.employee_payload("DEMO-900")),
@@ -455,7 +605,9 @@ class EmployeeApiTests(unittest.TestCase):
             def redirect_request(self, request, response, code, message, headers, new_url):
                 return None
 
-        opener = urllib.request.build_opener(NoRedirectHandler())
+        opener = urllib.request.build_opener(
+            NoRedirectHandler(), urllib.request.HTTPCookieProcessor(self.cookies)
+        )
         for vercel_environment in ("preview", "production"):
             with self.subTest(vercel_environment=vercel_environment):
                 with patch.dict(os.environ, {
@@ -470,19 +622,25 @@ class EmployeeApiTests(unittest.TestCase):
                             response = opener.open(request, timeout=5)
                         except urllib.error.HTTPError as error:
                             response = error
-                        self.assertEqual(response.code, 302)
-                        self.assertEqual(
-                            response.headers.get("Location"),
-                            "/employee-hub#home",
-                        )
+                        try:
+                            self.assertEqual(response.code, 302)
+                            self.assertEqual(
+                                response.headers.get("Location"),
+                                "/employee-hub#home",
+                            )
+                        finally:
+                            response.close()
 
         request = urllib.request.Request(self.base_url + "/api?__vercel_route=public-entry")
         try:
             response = opener.open(request, timeout=5)
         except urllib.error.HTTPError as error:
             response = error
-        self.assertEqual(response.code, 302)
-        self.assertEqual(response.headers.get("Location"), "/index.html")
+        try:
+            self.assertEqual(response.code, 302)
+            self.assertEqual(response.headers.get("Location"), "/login.html")
+        finally:
+            response.close()
 
     def test_payroll_role_cannot_read_employee_directory(self):
         self.login("payroll.demo")
@@ -520,7 +678,7 @@ class EmployeeApiTests(unittest.TestCase):
                         status, _ = self.request(path, method=method, payload=payload)
                         self.assertEqual(status, 403)
 
-        with test_database_connection() as connection:
+        with database_connection_context() as connection:
             self.assertEqual(
                 connection.execute(
                     "SELECT COUNT(*) FROM employees WHERE employee_id = 'RBAC-TEST-900'"
@@ -570,17 +728,19 @@ class EmployeeApiTests(unittest.TestCase):
         ):
             with self.subTest(path=path):
                 response = self.client.open(self.base_url + path, timeout=5)
-                self.assertEqual(response.status, 200)
-                self.assertIn("text/html", response.headers.get("Content-Type", ""))
-                content = response.read()
+                try:
+                    self.assertEqual(response.status, 200)
+                    self.assertIn("text/html", response.headers.get("Content-Type", ""))
+                    content = response.read()
+                finally:
+                    response.close()
                 self.assertIn(b"<!DOCTYPE html>", content[:256])
                 if path == "/":
                     self.assertIn(b"Suryanesia Employee Platform", content)
-                    self.assertIn(b"/employee-hub", content)
-                    self.assertIn(b'href="/hris"', content)
+                    self.assertIn(b"Sign in", content)
                 if path in ("/employee-hub", "/index.html"):
                     self.assertIn(b"auth-gate", content)
-                    self.assertIn(b'href="/"', content)
+                    self.assertIn(b"EMPLOYEE HUB", content)
                     self.assertIn(b"DEMO MODE", content)
                 if path in ("/hris", "/hris/"):
                     self.assertIn(b"auth-gate", content)
@@ -599,20 +759,123 @@ class EmployeeApiTests(unittest.TestCase):
         frontend = (hris_server.BASE_DIR / "index.html").read_text(encoding="utf-8")
         login = (hris_server.BASE_DIR / "login.html").read_text(encoding="utf-8")
         platform = (hris_server.BASE_DIR / "platform.html").read_text(encoding="utf-8")
+        admin = (hris_server.BASE_DIR / "admin.html").read_text(encoding="utf-8")
 
         self.assertIn("const hrisDashboardHome = setDashboardHome();", frontend)
+        self.assertIn("--transition-smooth: 260ms cubic-bezier(0.22, 1, 0.36, 1);", frontend)
+        self.assertIn("@media (prefers-reduced-motion: reduce)", frontend)
+        self.assertIn("#content-area.page-transition-out", frontend)
+        self.assertIn("setAppModalOpen(modal, isOpen)", frontend)
+        self.assertIn("class=\"app-modal fixed", frontend)
+        self.assertIn("class=\"h-24 animate-pulse rounded-2xl bg-gray-200\"", frontend)
+        self.assertIn("animate-pulse rounded-2xl border border-gray-200 bg-white p-5", frontend)
         self.assertNotIn("views.en.home = shell;", frontend)
         self.assertIn("viewId === 'home' && isHrisPlatform()", frontend)
-        self.assertIn("!['/', '/index.html', '/employee-hub', '/hris', '/hris/'].includes(destination.pathname)", frontend)
-        self.assertIn("destination.origin !== window.location.origin", frontend)
-        self.assertIn("['/', '/index.html', '/employee-hub', '/hris', '/hris/'].includes(destination.pathname)", login)
+        self.assertIn("configureEmployeeHubHome();", frontend)
+        self.assertIn("isEmployeeHubHome && isHrisPlatform()", frontend)
+        self.assertIn("const href = isEmployeeHubHome ? '/employee-hub#home' : item.href;", frontend)
+        self.assertNotIn('class="sidebar-brand-text', frontend)
+        self.assertIn('<img src="logo-green.png" alt="Suryanesia Logo" class="h-10 object-contain">', frontend)
+        self.assertIn("id=\"employee-quick-access-grid\"", frontend)
+        self.assertIn("id=\"request-quick-access-grid\"", frontend)
+        self.assertIn('id="request-quick-access-grid" class="grid grid-cols-1 gap-5 md:grid-cols-2"', frontend)
+        self.assertIn('bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:border-surya-green transition-colors group flex h-full flex-col', frontend)
+        self.assertIn("title: 'text-orange-600'", frontend)
+        self.assertIn("button: 'group-hover:bg-orange-500'", frontend)
+        self.assertIn("title: 'text-blue-600'", frontend)
+        self.assertIn("button: 'group-hover:bg-blue-600'", frontend)
+        self.assertIn("${colorTheme.button} group-hover:text-white transition-colors", frontend)
+        self.assertIn("requestGrid ? 'grid-cols-1 md:grid-cols-2'", frontend)
+        self.assertIn("Business Trip & Office Forms", frontend)
+        self.assertIn("Form Perjalanan Dinas & Kantor", frontend)
+        self.assertIn("renderQuickAccessGrid('request-quick-access-grid')", frontend)
+        self.assertIn("if (viewId === 'request' && !isHrisPlatform()) loadQuickAccess();", frontend)
+        self.assertIn("Business trip and office forms will appear here after an administrator configures and activates them.", frontend)
+        self.assertNotIn("function quickAccessPageView()", frontend)
+        self.assertNotIn("key: 'quick-access', route: 'quick-access'", frontend)
+        self.assertIn("'quick-access-management': 'Form Management'", frontend)
+        employee_hub_home = frontend.split("function configureEmployeeHubHome()", 1)[1].split(
+            "configureEmployeeHubHome();", 1
+        )[0]
+        self.assertEqual(employee_hub_home.count('<img src="favicon.ico" alt="Suryanesia icon" class="h-full w-full object-contain">'), 2)
+        self.assertEqual(employee_hub_home.count("h-32 w-32 items-center justify-center rounded-full bg-white p-2 shadow-xl"), 2)
+        self.assertIn("max-w-6xl p-4 pb-12 md:p-8", employee_hub_home)
+        self.assertIn("rounded-3xl bg-surya-green p-8 text-white shadow-lg md:flex-row md:p-10", employee_hub_home)
+        self.assertIn("Everything you need,<br>in one place.", employee_hub_home)
+        self.assertIn("Company update", employee_hub_home)
+        self.assertIn("There are no company announcements published yet.", employee_hub_home)
+        self.assertIn("Quick Request", employee_hub_home)
+        self.assertIn("Find Something", employee_hub_home)
+        self.assertIn("Quick Links", employee_hub_home)
+        self.assertIn('aria-label="Company Calendar and Quick Actions"', employee_hub_home)
+        self.assertIn('id="dashboard-calendar"', employee_hub_home)
+        self.assertIn("No company events have been configured.", employee_hub_home)
+        self.assertIn("onclick=\"navigate('my-requests')\"", employee_hub_home)
+        self.assertIn("onclick=\"openTicketForm()\"", employee_hub_home)
+        self.assertIn("onclick=\"navigate('company-information')\"", employee_hub_home)
+        self.assertIn("onclick=\"navigate('links')\"", employee_hub_home)
+        self.assertLess(employee_hub_home.index("Quick Request"), employee_hub_home.index("Frequently used"))
+        self.assertLess(employee_hub_home.index("Frequently used"), employee_hub_home.index("employee-quick-access-grid"))
+        self.assertIn("id=\"employee-hub-date\"", employee_hub_home)
+        self.assertIn("hover-card rounded-2xl border border-gray-200 bg-white p-5 shadow-sm", frontend)
+        self.assertIn("item.targetUrl", frontend)
+        sidebar_menu = frontend.split("const sidebarMenu = [", 1)[1].split("const sidebarLabels", 1)[0]
+        for earlier, later in (
+            ("key: 'home'", "key: 'request-center'"),
+            ("key: 'request-center'", "key: 'sop-guidelines'"),
+            ("key: 'sop-guidelines'", "key: 'policies'"),
+            ("key: 'policies'", "key: 'employee-corner'"),
+            ("key: 'employee-corner'", "key: 'quick-links'"),
+            ("key: 'quick-links'", "key: 'hris'"),
+            ("key: 'hris'", "key: 'helpdesk'"),
+        ):
+            self.assertLess(sidebar_menu.index(earlier), sidebar_menu.index(later))
+        self.assertNotIn("{ type: 'section', key: 'employee-hub' }", sidebar_menu)
+        self.assertIn("key: 'employee-services'", sidebar_menu)
+        self.assertIn("type: 'section', key: 'helpdesk'", sidebar_menu)
+        self.assertIn("function loginDestination()", login)
+        self.assertIn("@media (prefers-reduced-motion: reduce)", login)
+        self.assertIn(".login-card,", login)
+        self.assertIn("return '/employee-hub#home';", login)
+        self.assertNotIn("return '/hris#home';", login)
         self.assertIn('href="/employee-hub"', platform)
         self.assertIn('href="/hris"', platform)
+        self.assertIn("--transition-smooth: 260ms cubic-bezier(0.22, 1, 0.36, 1);", admin)
+        self.assertIn("@media (prefers-reduced-motion: reduce)", admin)
+
+    def test_root_entry_routes_to_login_or_employee_hub(self):
+        class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, request, response, code, message, headers, new_url):
+                return None
+
+        opener = urllib.request.build_opener(
+            NoRedirectHandler(), urllib.request.HTTPCookieProcessor(self.cookies)
+        )
+        try:
+            response = opener.open(self.base_url + "/", timeout=5)
+        except urllib.error.HTTPError as error:
+            response = error
+        try:
+            self.assertEqual(response.code, 302)
+            self.assertEqual(response.headers.get("Location"), "/login.html")
+        finally:
+            response.close()
+
+        self.login("system.demo")
+        try:
+            response = opener.open(self.base_url + "/", timeout=5)
+        except urllib.error.HTTPError as error:
+            response = error
+        try:
+            self.assertEqual(response.code, 302)
+            self.assertEqual(response.headers.get("Location"), "/employee-hub#home")
+        finally:
+            response.close()
 
     def test_employee_search_and_status_filters_are_paginated(self):
         self.login("system.demo")
         now = hris_server.datetime.now(hris_server.timezone.utc).isoformat()
-        with test_database_connection() as connection:
+        with database_connection_context() as connection:
             connection.executemany(
                 "INSERT INTO employees "
                 "(employee_id, full_name, email, department, position, status, created_at, updated_at) "
@@ -655,7 +918,7 @@ class EmployeeApiTests(unittest.TestCase):
         self.login("hr.demo")
         now = hris_server.datetime.now(hris_server.timezone.utc).isoformat()
         employee_ids = ("DISTINCT-900", "DISTINCT-901", "DISTINCT-902")
-        with test_database_connection() as connection:
+        with database_connection_context() as connection:
             connection.executemany(
                 "INSERT INTO employees "
                 "(employee_id, full_name, email, department, position, status, created_at, updated_at) "
@@ -707,7 +970,7 @@ class EmployeeApiTests(unittest.TestCase):
                 sorted(value.lower() for value in positions),
             )
         finally:
-            with test_database_connection() as connection:
+            with database_connection_context() as connection:
                 connection.executemany(
                     "DELETE FROM employees WHERE employee_id = ?",
                     [(employee_id,) for employee_id in employee_ids],
@@ -777,7 +1040,7 @@ class EmployeeApiTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(payload["deleted"], "SAMPLE-900")
 
-        with test_database_connection() as connection:
+        with database_connection_context() as connection:
             actions = [
                 row["action"]
                 for row in connection.execute(
@@ -803,6 +1066,54 @@ class EmployeeApiTests(unittest.TestCase):
         )
         self.assertEqual(status, 403)
 
+    def test_put_and_delete_require_origin_and_csrf(self):
+        self.login("hr.demo")
+        original_employee = self.employee_payload("SAMPLE-001")
+        original_employee.update({
+            "name": "Demo Employee Alpha",
+            "email": "alpha@example.test",
+            "department": "People Operations",
+            "position": "Sample Coordinator",
+        })
+
+        mutation_requests = (
+            ("PUT", "/api/employees/SAMPLE-001", original_employee),
+            ("DELETE", "/api/employees/SAMPLE-001", None),
+        )
+        for method, path, payload in mutation_requests:
+            with self.subTest(method=method, failure="missing origin"):
+                status, _ = self.request(
+                    path,
+                    method=method,
+                    payload=payload,
+                    include_origin=False,
+                )
+                self.assertEqual(status, 403)
+
+            with self.subTest(method=method, failure="missing csrf"):
+                status, _ = self.request(
+                    path,
+                    method=method,
+                    payload=payload,
+                    csrf=False,
+                )
+                self.assertEqual(status, 403)
+
+        with database_connection_context() as connection:
+            employee = connection.execute(
+                "SELECT full_name, email FROM employees WHERE employee_id = ?",
+                ("SAMPLE-001",),
+            ).fetchone()
+            self.assertEqual(employee["full_name"], "Demo Employee Alpha")
+            self.assertEqual(employee["email"], "alpha@example.test")
+            self.assertEqual(
+                connection.execute(
+                    "SELECT COUNT(*) FROM audit_logs WHERE employee_id = ?",
+                    ("SAMPLE-001",),
+                ).fetchone()[0],
+                0,
+            )
+
     def test_logout_revokes_session(self):
         self.login("hr.demo")
         status, _ = self.request("/api/auth/logout", method="POST")
@@ -813,7 +1124,7 @@ class EmployeeApiTests(unittest.TestCase):
 
     def test_expired_session_is_reported_and_revoked(self):
         self.login("hr.demo")
-        with test_database_connection() as connection:
+        with database_connection_context() as connection:
             connection.execute(
                 "UPDATE sessions SET expires_at = ?",
                 ("2000-01-01T00:00:00+00:00",),
@@ -1074,6 +1385,156 @@ class EmployeeApiTests(unittest.TestCase):
         self.assertNotIn("synthetic-private-search-term", logged)
         self.assertNotIn("SAMPLE-001", logged)
 
+    def test_quick_access_requires_hr_role_and_manages_employee_forms(self):
+        self.login("employee.demo")
+        status, items = self.request("/api/quick-access")
+        self.assertEqual(status, 200)
+        self.assertEqual(items["items"], [])
+        status, _ = self.request("/api/admin/quick-access")
+        self.assertEqual(status, 403)
+        status, _ = self.request(
+            "/api/admin/quick-access",
+            method="POST",
+            payload={"title": "Unauthorized"},
+        )
+        self.assertEqual(status, 403)
+        self.reset_client()
+        self.login("it.support")
+        status, _ = self.request("/api/admin/quick-access")
+        self.assertEqual(status, 403)
+
+        self.reset_client()
+        self.login("hr.demo")
+        status, defaults = self.request("/api/admin/quick-access")
+        self.assertEqual(status, 200)
+        by_id = {item["id"]: item for item in defaults["items"]}
+        self.assertEqual(set(by_id), {"business-trip", "office-amenities"})
+        self.assertEqual(by_id["business-trip"]["status"], "draft")
+        self.assertIsNone(by_id["business-trip"]["targetUrl"])
+
+        status, activation_error = self.request(
+            "/api/admin/quick-access/office-amenities/status",
+            method="PATCH",
+            payload={"status": "active"},
+        )
+        self.assertEqual(status, 400)
+        self.assertIn("URL", activation_error["error"])
+
+        payload = {
+            "title": "Business Trip Form",
+            "description": "Submit a business trip request.",
+            "category": "HR / Administration",
+            "icon": "fa-plane",
+            "displayOrder": 1,
+            "visibility": "employees",
+            "status": "active",
+        }
+        status, invalid = self.request(
+            "/api/admin/quick-access/business-trip",
+            method="PUT",
+            payload={**payload, "targetUrl": "http://docs.google.com/forms/d/e/test/viewform"},
+        )
+        self.assertEqual(status, 400)
+        self.assertIn("Google Forms URL", invalid["error"])
+
+        form_url = "https://docs.google.com/forms/d/e/synthetic-id/viewform"
+        status, item = self.request(
+            "/api/admin/quick-access/business-trip",
+            method="PUT",
+            payload={**payload, "targetUrl": form_url},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(item["item"]["status"], "active")
+
+        status, created = self.request(
+            "/api/admin/quick-access",
+            method="POST",
+            payload={
+                "title": "Synthetic Test Shortcut",
+                "description": "A test-only shortcut.",
+                "category": "Testing",
+                "icon": "fa-flask",
+                "targetUrl": "https://forms.gle/synthetic-test-form",
+                "displayOrder": 3,
+                "visibility": "employees",
+                "status": "active",
+            },
+        )
+        self.assertEqual(status, 201)
+        created_id = created["item"]["id"]
+
+        self.reset_client()
+        self.login("employee.demo")
+        status, visible = self.request("/api/quick-access")
+        self.assertEqual(status, 200)
+        self.assertEqual(
+            [entry["id"] for entry in visible["items"]],
+            ["business-trip", created_id],
+        )
+        status, hidden = self.request("/api/quick-access/office-amenities")
+        self.assertEqual(status, 404)
+
+        self.reset_client()
+        self.login("hr.demo")
+        status, changed = self.request(
+            "/api/admin/quick-access/business-trip/status",
+            method="PATCH",
+            payload={"status": "inactive"},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(changed["item"]["status"], "inactive")
+        status, deleted = self.request(
+            "/api/admin/quick-access/office-amenities",
+            method="DELETE",
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(deleted["deleted"], "office-amenities")
+        status, deleted = self.request(
+            "/api/admin/quick-access/{}".format(created_id),
+            method="DELETE",
+        )
+        self.assertEqual(status, 200)
+
+        with database_connection_context() as connection:
+            connection.execute(
+                "UPDATE quick_access_items SET status = 'draft', target_url = NULL "
+                "WHERE id = 'business-trip'"
+            )
+            connection.execute(
+                "INSERT INTO quick_access_items "
+                "(id, title, description, category, icon, target_url, display_order, "
+                "visibility, status, created_by, created_at, updated_at) "
+                "VALUES ('office-amenities', 'Office Amenities Form', "
+                "'Request office supplies and amenities.', 'Office', 'fa-box-open', "
+                "NULL, 2, 'employees', 'draft', NULL, 'test', 'test')"
+            )
+
+    def test_quick_access_rejects_non_google_urls_and_employee_status_mutations(self):
+        self.login("employee.demo")
+        status, _ = self.request(
+            "/api/admin/quick-access/business-trip/status",
+            method="PATCH",
+            payload={"status": "active"},
+        )
+        self.assertEqual(status, 403)
+        self.reset_client()
+        self.login("hr.demo")
+        status, payload = self.request(
+            "/api/admin/quick-access/business-trip",
+            method="PUT",
+            payload={
+                "title": "Business Trip Form",
+                "description": "Submit a business trip request.",
+                "category": "HR / Administration",
+                "icon": "fa-plane",
+                "targetUrl": "https://example.test/forms/business-trip",
+                "displayOrder": 1,
+                "visibility": "employees",
+                "status": "active",
+            },
+        )
+        self.assertEqual(status, 400)
+        self.assertIn("Google Forms URL", payload["error"])
 
 if __name__ == "__main__":
     unittest.main()

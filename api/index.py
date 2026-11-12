@@ -40,6 +40,10 @@ class handler(HRISHandler):
         self._restore_api_path()
         super().do_PUT()
 
+    def do_PATCH(self):
+        self._restore_api_path()
+        super().do_PATCH()
+
     def do_DELETE(self):
         self._restore_api_path()
         super().do_DELETE()

@@ -14,4 +14,11 @@ venv/
 *.db
 *.log
 .neon
+credentials.json
+secrets.json
+*_credentials.json
+*.pem
+*.key
+id_rsa
+id_ed25519
 node_modules/

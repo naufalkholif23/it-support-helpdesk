@@ -14,18 +14,29 @@ from urllib.parse import unquote, urlsplit
 import hris_server
 
 
-NEON_PROJECT_ID = "small-sound-44823719"
-NEON_BRANCH_ID = "br-autumn-art-az0q5n0y"
-NEON_BRANCH_NAME = "employee-hub-testing"
-DATABASE_NAME = "neondb"
-EXPECTED_DATABASE_HOST = "ep-morning-hall-azdybl02.c-3.ap-southeast-1.aws.neon.tech"
-EXPECTED_DATABASE_HOSTS = {
-    EXPECTED_DATABASE_HOST,
-    EXPECTED_DATABASE_HOST.replace(".c-", "-pooler.c-", 1),
-}
+NEON_TEST_ENVIRONMENT = (
+    "HRIS_TEST_DATABASE_URL",
+    "NEON_PROJECT_ID",
+    "NEON_BRANCH_ID",
+    "NEON_BRANCH_NAME",
+    "NEON_DATABASE_HOST",
+    "NEON_DATABASE_NAME",
+)
+TEST_PROJECT_ID = "project-fixture"
+TEST_BRANCH_ID = "branch-fixture"
+TEST_BRANCH_NAME = "test-branch"
+TEST_DATABASE_HOST = "db.example.invalid"
+TEST_DATABASE_NAME = "testdb"
 
 
-def configured_database_host(database_url):
+def missing_neon_test_configuration():
+    return [
+        name for name in NEON_TEST_ENVIRONMENT
+        if not os.environ.get(name, "").strip()
+    ]
+
+
+def configured_database_host(database_url, expected_database_name):
     parsed = None
     try:
         parsed = urlsplit(database_url)
@@ -39,24 +50,32 @@ def configured_database_host(database_url):
         not parsed
         or parsed.scheme not in ("postgres", "postgresql")
         or not hostname
-        or database_name != DATABASE_NAME
+        or database_name != expected_database_name
     ):
         raise RuntimeError("Neon integration test database target could not be verified.")
     return hostname.lower().rstrip(".")
 
 
-def verify_neon_branch_metadata(database_host, branch_response, endpoints_response):
+def verify_neon_branch_metadata(
+    database_host,
+    branch_response,
+    endpoints_response,
+    project_id,
+    branch_id,
+    branch_name,
+    expected_database_hosts,
+):
     branches = branch_response.get("branches") if isinstance(branch_response, dict) else None
     matching_branches = [
         branch for branch in branches or []
         if isinstance(branch, dict)
-        and branch.get("id") == NEON_BRANCH_ID
-        and branch.get("name") == NEON_BRANCH_NAME
-        and branch.get("project_id") == NEON_PROJECT_ID
+        and branch.get("id") == branch_id
+        and branch.get("name") == branch_name
+        and branch.get("project_id") == project_id
         and branch.get("default") is False
         and branch.get("primary") is False
     ]
-    if len(matching_branches) != 1 or database_host not in EXPECTED_DATABASE_HOSTS:
+    if len(matching_branches) != 1 or database_host not in expected_database_hosts:
         raise RuntimeError("Neon integration test database target could not be verified.")
 
     endpoints = (
@@ -68,8 +87,8 @@ def verify_neon_branch_metadata(database_host, branch_response, endpoints_respon
     for endpoint in endpoints or []:
         if (
             not isinstance(endpoint, dict)
-            or endpoint.get("project_id") != NEON_PROJECT_ID
-            or endpoint.get("branch_id") != NEON_BRANCH_ID
+            or endpoint.get("project_id") != project_id
+            or endpoint.get("branch_id") != branch_id
             or endpoint.get("type") != "read_write"
             or endpoint.get("disabled")
         ):
@@ -120,102 +139,104 @@ def neon_api_json(path):
         raise RuntimeError("Neon branch metadata could not be verified.") from None
 
 
-def verify_neon_testing_database(database_url):
-    database_host = configured_database_host(database_url)
-    branches = neon_api_json("/projects/{}/branches".format(NEON_PROJECT_ID))
+def verify_neon_testing_database(database_url, configuration):
+    database_host = configured_database_host(
+        database_url, configuration["NEON_DATABASE_NAME"]
+    )
+    expected_host = configuration["NEON_DATABASE_HOST"].lower().rstrip(".")
+    expected_hosts = {expected_host}
+    if ".c-" in expected_host:
+        expected_hosts.add(expected_host.replace(".c-", "-pooler.c-", 1))
+    branches = neon_api_json(
+        "/projects/{}/branches".format(configuration["NEON_PROJECT_ID"])
+    )
     endpoints = neon_api_json(
         "/projects/{}/branches/{}/endpoints".format(
-            NEON_PROJECT_ID, NEON_BRANCH_ID
+            configuration["NEON_PROJECT_ID"], configuration["NEON_BRANCH_ID"]
         )
     )
-    verify_neon_branch_metadata(database_host, branches, endpoints)
+    verify_neon_branch_metadata(
+        database_host,
+        branches,
+        endpoints,
+        configuration["NEON_PROJECT_ID"],
+        configuration["NEON_BRANCH_ID"],
+        configuration["NEON_BRANCH_NAME"],
+        expected_hosts,
+    )
 
 
 class NeonTargetGuardTests(unittest.TestCase):
     def setUp(self):
-        pooled_host = EXPECTED_DATABASE_HOST.replace(".c-", "-pooler.c-", 1)
         self.branch_response = {
             "branches": [{
-                "id": NEON_BRANCH_ID,
-                "name": NEON_BRANCH_NAME,
-                "project_id": NEON_PROJECT_ID,
+                "id": TEST_BRANCH_ID,
+                "name": TEST_BRANCH_NAME,
+                "project_id": TEST_PROJECT_ID,
                 "default": False,
                 "primary": False,
             }]
         }
         self.endpoints_response = {
             "endpoints": [{
-                "project_id": NEON_PROJECT_ID,
-                "branch_id": NEON_BRANCH_ID,
+                "project_id": TEST_PROJECT_ID,
+                "branch_id": TEST_BRANCH_ID,
                 "type": "read_write",
-                "host": EXPECTED_DATABASE_HOST,
+                "host": TEST_DATABASE_HOST,
                 "hosts": {
-                    "read_write_host": EXPECTED_DATABASE_HOST,
-                    "read_write_pooled_host": pooled_host,
+                    "read_write_host": TEST_DATABASE_HOST,
+                    "read_write_pooled_host": "pooler.example.invalid",
                 },
             }]
         }
 
-    def test_accepts_verified_testing_branch_and_endpoint(self):
+    def verify_metadata(self, database_host):
         verify_neon_branch_metadata(
-            EXPECTED_DATABASE_HOST,
+            database_host,
             self.branch_response,
             self.endpoints_response,
+            TEST_PROJECT_ID,
+            TEST_BRANCH_ID,
+            TEST_BRANCH_NAME,
+            {TEST_DATABASE_HOST, "pooler.example.invalid"},
         )
 
+    def test_accepts_verified_testing_branch_and_endpoint(self):
+        self.verify_metadata(TEST_DATABASE_HOST)
+
     def test_accepts_testing_branch_pooler_endpoint(self):
-        pooled_host = EXPECTED_DATABASE_HOST.replace(".c-", "-pooler.c-", 1)
-        verify_neon_branch_metadata(
-            pooled_host,
-            self.branch_response,
-            self.endpoints_response,
-        )
+        self.verify_metadata("pooler.example.invalid")
 
     def test_rejects_default_branch(self):
         self.branch_response["branches"][0]["default"] = True
         with self.assertRaises(RuntimeError):
-            verify_neon_branch_metadata(
-                EXPECTED_DATABASE_HOST,
-                self.branch_response,
-                self.endpoints_response,
-            )
+            self.verify_metadata(TEST_DATABASE_HOST)
 
     def test_rejects_main_branch_identity(self):
         self.branch_response["branches"][0]["name"] = "main"
         with self.assertRaises(RuntimeError):
-            verify_neon_branch_metadata(
-                EXPECTED_DATABASE_HOST,
-                self.branch_response,
-                self.endpoints_response,
-            )
+            self.verify_metadata(TEST_DATABASE_HOST)
 
     def test_rejects_host_not_owned_by_testing_branch(self):
         with self.assertRaises(RuntimeError):
-            verify_neon_branch_metadata(
-                "ep-production.example.neon.tech",
-                self.branch_response,
-                self.endpoints_response,
-            )
+            self.verify_metadata("other.example.invalid")
 
     def test_rejects_endpoint_with_wrong_branch_identity(self):
-        self.endpoints_response["endpoints"][0]["branch_id"] = "br-main"
+        self.endpoints_response["endpoints"][0]["branch_id"] = "another-branch"
         with self.assertRaises(RuntimeError):
-            verify_neon_branch_metadata(
-                EXPECTED_DATABASE_HOST,
-                self.branch_response,
-                self.endpoints_response,
-            )
+            self.verify_metadata(TEST_DATABASE_HOST)
 
     def test_rejects_connection_url_for_wrong_database(self):
         with self.assertRaises(RuntimeError):
             configured_database_host(
-                "postgresql://{}".format(EXPECTED_DATABASE_HOST)
+                "postgresql://{}".format(TEST_DATABASE_HOST),
+                TEST_DATABASE_NAME,
             )
 
 
 @unittest.skipUnless(
-    os.environ.get("HRIS_TEST_DATABASE_URL"),
-    "Set HRIS_TEST_DATABASE_URL to run the isolated Neon integration test.",
+    not missing_neon_test_configuration(),
+    "Set all Neon integration environment variables to run the isolated database test.",
 )
 class NeonPostgresIntegrationTests(unittest.TestCase):
     @classmethod
@@ -223,8 +244,12 @@ class NeonPostgresIntegrationTests(unittest.TestCase):
         cls.original_database_url = hris_server.DATABASE_URL
         cls.original_host = hris_server.HOST
         cls.original_port = hris_server.PORT
-        test_database_url = os.environ["HRIS_TEST_DATABASE_URL"].strip()
-        verify_neon_testing_database(test_database_url)
+        configuration = {
+            name: os.environ[name].strip()
+            for name in NEON_TEST_ENVIRONMENT
+        }
+        test_database_url = configuration["HRIS_TEST_DATABASE_URL"]
+        verify_neon_testing_database(test_database_url, configuration)
         hris_server.DATABASE_URL = test_database_url
         cls.username = "neon-test-" + secrets.token_hex(6)
         cls.email = cls.username + "@example.test"
@@ -249,8 +274,8 @@ class NeonPostgresIntegrationTests(unittest.TestCase):
                 database = connection.execute(
                     "SELECT current_database() AS name"
                 ).fetchone()
-                if database["name"] != "neondb":
-                    raise RuntimeError("Integration tests require the neondb database.")
+                if database["name"] != configuration["NEON_DATABASE_NAME"]:
+                    raise RuntimeError("Integration tests require the configured test database.")
                 counts = {
                     table: connection.execute(
                         "SELECT COUNT(*) AS count FROM " + table
@@ -259,7 +284,7 @@ class NeonPostgresIntegrationTests(unittest.TestCase):
                 }
                 if any(counts.values()):
                     raise RuntimeError(
-                        "Integration tests require an empty employee-hub-testing database."
+                        "Integration tests require an empty configured test database."
                     )
 
                 salt, password_hash = hris_server.hash_password(cls.password)

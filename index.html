@@ -35,9 +35,30 @@
         }
     </script>
     <style>
+        :root {
+            --transition-fast: 150ms ease;
+            --transition-normal: 220ms ease-out;
+            --transition-smooth: 260ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
             background-color: #f8fafc;
+        }
+
+        button,
+        a,
+        input,
+        select,
+        textarea {
+            transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+            transition-duration: var(--transition-fast);
+            transition-timing-function: ease-out;
+        }
+
+        button:not(:disabled):active,
+        a:active {
+            transform: scale(0.985);
         }
 
         body.auth-checking > :not(#auth-gate) {
@@ -65,16 +86,40 @@
 
         /* Animations */
         .fade-in {
-            animation: fadeIn 0.4s ease-out forwards;
+            animation: fadeIn var(--transition-smooth) both;
         }
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(15px); }
+            from { opacity: 0; transform: translateY(8px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+
+        #content-area {
+            transition: opacity var(--transition-normal), transform var(--transition-normal);
+            will-change: opacity, transform;
+        }
+        #content-area.page-transition-out {
+            opacity: 0;
+            transform: translateY(4px);
+        }
+
+        .app-modal {
+            opacity: 0;
+            transition: opacity var(--transition-normal);
+        }
+        .app-modal > :first-child {
+            transform: translateY(4px) scale(0.985);
+            transition: transform var(--transition-normal);
+        }
+        .app-modal.is-open {
+            opacity: 1;
+        }
+        .app-modal.is-open > :first-child {
+            transform: translateY(0) scale(1);
         }
 
         /* Accordion Styles */
         .accordion-content {
-            transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out, padding 0.3s ease-in-out;
+            transition: max-height var(--transition-smooth), opacity var(--transition-normal), padding var(--transition-normal);
             max-height: 0;
             opacity: 0;
             overflow: hidden;
@@ -103,17 +148,27 @@
             from { transform: translate(-50%, 0); opacity: 1; }
             to { transform: translate(-50%, 100%); opacity: 0; }
         }
-        .toast-enter { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        .toast-exit { animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .toast-enter { animation: slideUp var(--transition-smooth) forwards; }
+        .toast-exit { animation: slideDown var(--transition-normal) forwards; }
         
         /* Card Hover Effects */
         .hover-card {
-            transition: all 0.3s ease;
+            transition: transform var(--transition-normal), box-shadow var(--transition-normal), border-color var(--transition-normal), background-color var(--transition-normal);
         }
         .hover-card:hover {
-            transform: translateY(-4px);
+            transform: translateY(-2px);
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
             border-color: #00783d;
+        }
+
+        #sidebar {
+            transition-property: transform, width;
+            transition-duration: var(--transition-smooth);
+            transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        #sidebar-nav .sidebar-item,
+        #sidebar-nav > div > button {
+            transition: color var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
         }
         
         /* Gradation Background based on guideline */
@@ -164,6 +219,51 @@
         .sidebar-submenu {
             transition: max-height 0.25s ease, opacity 0.2s ease;
         }
+
+        #sidebar.sidebar-collapsed {
+            width: 5rem;
+        }
+
+        #sidebar.sidebar-collapsed .sidebar-label,
+        #sidebar.sidebar-collapsed .sidebar-section-label,
+        #sidebar.sidebar-collapsed .sidebar-group-chevron {
+            display: none;
+        }
+
+        #sidebar.sidebar-collapsed .sidebar-brand {
+            justify-content: center;
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        #sidebar.sidebar-collapsed #sidebar-nav .sidebar-item,
+        #sidebar.sidebar-collapsed #sidebar-nav > button,
+        #sidebar.sidebar-collapsed #sidebar-nav > div > button {
+            justify-content: center;
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+        }
+
+        #sidebar.sidebar-collapsed .sidebar-submenu {
+            display: none;
+        }
+
+        @media (max-width: 767px) {
+            #sidebar.sidebar-collapsed {
+                width: 18rem;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                scroll-behavior: auto !important;
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
     </style>
 </head>
 <body class="auth-checking text-gray-800 h-screen flex overflow-hidden selection:bg-surya-green selection:text-white">
@@ -178,9 +278,11 @@
 
     <!-- Sidebar Navigation -->
     <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] -translate-x-full flex-col bg-white border-r border-gray-200 h-full shrink-0 shadow-2xl transition-transform duration-300 md:relative md:z-20 md:max-w-none md:translate-x-0 md:shadow-none">
-        <div class="p-6 flex items-center justify-start border-b border-gray-100 h-20">
-            <!-- Using the provided logo -->
+        <div class="sidebar-brand p-6 flex items-center justify-between border-b border-gray-100 h-20">
             <img src="logo-green.png" alt="Suryanesia Logo" class="h-10 object-contain">
+            <button type="button" class="hidden rounded-lg p-2 text-gray-500 hover:bg-surya-lightgreen hover:text-surya-green md:block" onclick="toggleSidebarCollapsed()" aria-label="Collapse or expand sidebar" title="Collapse or expand sidebar">
+                <i class="fas fa-angles-left" aria-hidden="true"></i>
+            </button>
         </div>
         
         <div class="flex-1 overflow-y-auto px-3 py-5">
@@ -216,10 +318,6 @@
             
             <!-- Right Actions -->
             <div class="flex items-center space-x-2 sm:space-x-4 ml-auto sm:ml-4">
-                <a href="/" class="flex h-10 items-center justify-center gap-2 rounded-xl border border-gray-200 px-3 text-sm font-bold text-gray-600 transition-colors hover:border-surya-green hover:bg-surya-lightgreen hover:text-surya-green" aria-label="Back to platform selection" title="Back to platform selection">
-                    <i class="fas fa-layer-group" aria-hidden="true"></i>
-                    <span class="hidden sm:inline">Platforms</span>
-                </a>
                 <span id="demo-mode-indicator" class="hidden rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold tracking-wider text-emerald-800">DEMO MODE</span>
                 <button type="button" onclick="openTicketForm()" class="flex h-10 w-10 items-center justify-center rounded-xl bg-surya-green text-white shadow-sm hover:bg-green-800 sm:hidden" aria-label="Buat tiket">
                     <i class="fas fa-plus"></i>
@@ -253,8 +351,8 @@
     <!-- Global Toast Container -->
     <div id="toast-container" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center pointer-events-none gap-2"></div>
 
-    <!-- Public ticket form: prototype storage uses localStorage; production should use a backend/database. -->
-    <div id="ticket-modal" class="fixed inset-0 z-[90] hidden items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="ticket-modal-title">
+    <!-- Local Helpdesk tickets are stored by the authenticated application API. -->
+    <div id="ticket-modal" class="app-modal fixed inset-0 z-[90] hidden items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="ticket-modal-title">
         <div class="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl">
             <div class="flex items-center justify-between border-b border-gray-100 px-6 py-5">
                 <div>
@@ -298,10 +396,6 @@
                     <span class="mb-1.5 block text-sm font-bold text-gray-700" id="ticket-description-label">Deskripsi</span>
                     <textarea id="ticket-description" required rows="4" class="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-surya-green focus:ring-2 focus:ring-surya-lightgreen" placeholder="Jelaskan kebutuhan Anda secara singkat"></textarea>
                 </label>
-                <label class="block">
-                    <span class="mb-1.5 block text-sm font-bold text-gray-700" id="ticket-attachment-label">Attachment (optional)</span>
-                    <input id="ticket-attachment" type="file" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
-                </label>
                 <div class="flex justify-end gap-3 pt-2">
                     <button type="button" onclick="closeTicketForm()" class="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-50" id="ticket-cancel">Batal</button>
                     <button type="submit" class="rounded-xl bg-surya-green px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-green-800" id="ticket-submit">Kirim tiket</button>
@@ -310,20 +404,21 @@
         </div>
     </div>
 
-    <div id="check-ticket-modal" class="fixed inset-0 z-[85] hidden items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
+    <div id="check-ticket-modal" class="app-modal fixed inset-0 z-[85] hidden items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
         <div class="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
             <div class="flex items-center justify-between border-b border-gray-100 px-6 py-5">
-                <div><p id="check-modal-label" class="text-xs font-bold uppercase tracking-wider text-surya-green">Public Helpdesk</p><h2 id="check-modal-title" class="text-xl font-extrabold text-gray-900">Check Ticket Status</h2></div>
+                <div><p id="check-modal-label" class="text-xs font-bold uppercase tracking-wider text-surya-green">Helpdesk</p><h2 id="check-modal-title" class="text-xl font-extrabold text-gray-900">Check Ticket Status</h2></div>
                 <button type="button" onclick="closeCheckTicket()" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100" aria-label="Close"><i class="fas fa-times"></i></button>
             </div>
             <div class="space-y-4 p-6">
-                <div class="flex gap-2"><input id="check-ticket-id" class="min-w-0 flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm uppercase outline-none focus:border-surya-green" placeholder="IT-20260924-0001"><button id="check-modal-submit" type="button" onclick="checkTicketStatus()" class="rounded-xl bg-surya-green px-4 py-3 text-sm font-bold text-white">Cek Status</button></div>
+                <p id="ticket-privacy-help" class="text-sm text-gray-500">Only tickets owned by your signed-in account are available.</p>
+                <div class="flex gap-2"><input id="check-ticket-id" class="min-w-0 flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm uppercase outline-none focus:border-surya-green" placeholder="IT-YYYYMMDD-XXXX"><button id="check-modal-submit" type="button" onclick="checkTicketStatus()" class="rounded-xl bg-surya-green px-4 py-3 text-sm font-bold text-white">Cek Status</button></div>
                 <div id="ticket-result" class="hidden"></div>
             </div>
         </div>
     </div>
 
-    <div id="ai-assistant-modal" class="fixed inset-0 z-[80] hidden items-center justify-center bg-gray-900/40 p-4">
+    <div id="ai-assistant-modal" class="app-modal fixed inset-0 z-[80] hidden items-center justify-center bg-gray-900/40 p-4">
         <div class="ai-widget w-full max-w-xl rounded-3xl border border-gray-200 shadow-2xl overflow-hidden">
             <div class="flex items-center justify-between bg-surya-green px-5 py-4 text-white">
                 <div>
@@ -365,6 +460,9 @@
         let currentLang = '';
         let currentViewId = 'home';
         const hrisAuthState = { authenticated: false, user: null, csrfToken: '', demoMode: false };
+        let helpdeskTicketCache = [];
+        let helpdeskTicketsError = '';
+        let employeeProfileData = null;
         let loginRedirectStarted = false;
 
         function isHrisPlatform() {
@@ -465,6 +563,7 @@
             initializeData();
             initializeSearchBehavior();
             setLanguage('en');
+            await Promise.all([loadMyTickets(), loadEmployeeProfile()]);
             const initialRoute = employeeRouteState().route;
             navigate(isKnownRoute(initialRoute) ? initialRoute : 'home', true);
             if (!isKnownRoute(initialRoute)) {
@@ -518,7 +617,7 @@
                 searchPlaceholder: "Search SOPs, policies, forms...",
                 heroTitle: "Everything you need,<br>in one place.",
                 heroDescription: "A single portal to access SOPs, company policies, employee information, and request forms.",
-                checkLabel: "Public Helpdesk",
+                checkLabel: "Helpdesk",
                 checkTitle: "Check Ticket Status",
                 checkSubmit: "Check Status",
                 ticketName: "Name",
@@ -526,7 +625,6 @@
                 ticketDepartment: "Department",
                 ticketCategory: "Category",
                 ticketPriority: "Priority",
-                ticketAttachment: "Attachment (optional)",
                 aiTitle: "Assistant",
                 aiGreeting: "Hi! How can I help you?",
                 aiPlaceholder: "Type your question...",
@@ -563,7 +661,6 @@
                 ticketDepartment: "Departemen",
                 ticketCategory: "Kategori",
                 ticketPriority: "Prioritas",
-                ticketAttachment: "Lampiran (opsional)",
                 aiTitle: "Asisten",
                 aiGreeting: "Halo! Ada yang bisa saya bantu?",
                 aiPlaceholder: "Ketik pertanyaan Anda...",
@@ -574,7 +671,24 @@
 
         const sidebarMenu = [
             { type: 'item', key: 'home', route: 'home', icon: 'fa-house' },
-            { type: 'item', key: 'employee-profile', route: 'employee-profile', icon: 'fa-id-card' },
+            { type: 'item', key: 'request-center', route: 'request', icon: 'fa-concierge-bell' },
+            { type: 'item', key: 'sop-guidelines', route: 'sop', icon: 'fa-book' },
+            { type: 'item', key: 'policies', route: 'policies', icon: 'fa-scale-balanced' },
+            { type: 'item', key: 'employee-corner', route: 'corner', icon: 'fa-seedling' },
+            { type: 'item', key: 'quick-links', route: 'links', icon: 'fa-link' },
+            {
+                type: 'group', key: 'employee-services', icon: 'fa-user-group', children: [
+                    { key: 'my-requests', route: 'my-requests', icon: 'fa-list-check' },
+                    { key: 'announcements', route: 'announcements', icon: 'fa-bullhorn' },
+                    { key: 'company-information', route: 'company-information', icon: 'fa-building' },
+                    { key: 'faq', route: 'knowledge-base', icon: 'fa-circle-question' },
+                    { key: 'employee-profile', route: 'employee-profile', icon: 'fa-id-card' },
+                    { key: 'my-assets', route: 'assets', icon: 'fa-laptop' }
+                ]
+            },
+            { type: 'divider' },
+            { type: 'section', key: 'hris' },
+            { type: 'link', key: 'hris-dashboard', href: '/hris#home', icon: 'fa-chart-pie' },
             {
                 type: 'group', key: 'employees', icon: 'fa-users', children: [
                     { key: 'employee-directory', route: 'employees', icon: 'fa-address-book' },
@@ -636,7 +750,8 @@
                 type: 'group', key: 'settings', icon: 'fa-gear', children: [
                     { key: 'general-settings', route: 'general-settings', icon: 'fa-sliders' },
                     { key: 'user-management', route: 'user-management', icon: 'fa-user-gear' },
-                    { key: 'roles-permissions', route: 'roles-permissions', icon: 'fa-shield-halved' }
+                    { key: 'roles-permissions', route: 'roles-permissions', icon: 'fa-shield-halved' },
+                    { key: 'quick-access-management', route: 'quick-access-management', icon: 'fa-link' }
                 ]
             },
             { type: 'divider', key: 'helpdesk-divider' },
@@ -645,20 +760,18 @@
             { type: 'action', key: 'create-ticket', icon: 'fa-ticket' , action: 'openTicketForm' },
             { type: 'action', key: 'check-ticket', icon: 'fa-magnifying-glass', action: 'openCheckTicket' },
             { type: 'item', key: 'my-tickets', route: 'my-tickets', icon: 'fa-list-check' },
-            { type: 'item', key: 'my-assets', route: 'assets', icon: 'fa-laptop' },
-            { type: 'item', key: 'knowledge-base', route: 'knowledge-base', icon: 'fa-book-open' },
-            { type: 'item', key: 'request-center', route: 'request', icon: 'fa-concierge-bell' },
-            { type: 'item', key: 'sop-guidelines', route: 'sop', icon: 'fa-book' },
-            { type: 'item', key: 'policies', route: 'policies', icon: 'fa-scale-balanced' },
-            { type: 'item', key: 'announcements', route: 'announcements', icon: 'fa-bullhorn' },
-            { type: 'item', key: 'quick-links', route: 'links', icon: 'fa-link' },
-            { type: 'item', key: 'employee-corner', route: 'corner', icon: 'fa-seedling' },
+            { type: 'link', key: 'helpdesk-queue', href: 'admin.html', icon: 'fa-headset' },
             { type: 'action', key: 'sign-out', icon: 'fa-right-from-bracket', action: 'logoutHRIS' }
         ];
 
         const sidebarLabels = {
             en: {
-                home: 'Dashboard', 'employee-profile': 'Employee Profile', employees: 'Employees',
+                'employee-hub': 'Employee Hub', hris: 'HRIS',
+                'employee-services': 'Employee Services',
+                home: 'Dashboard', 'my-requests': 'My Requests',
+                'company-information': 'Company Information', faq: 'FAQ',
+                'employee-profile': 'Employee Profile', 'hris-dashboard': 'HRIS Dashboard',
+                employees: 'Employees',
                 'employee-directory': 'Employee Directory', 'manpower-planning': 'Manpower Planning',
                 'new-joiner-submission': 'New Joiner Submission', onboarding: 'Onboarding',
                 offboarding: 'Offboarding', reprimand: 'Reprimand', recruitment: 'Recruitment',
@@ -675,9 +788,11 @@
                 departments: 'Departments', 'organization-structure': 'Organization Structure',
                 applications: 'Applications', integrations: 'Integrations', settings: 'Settings',
                 'general-settings': 'General Settings', 'user-management': 'User Management',
-                'roles-permissions': 'Roles and Permissions', helpdesk: 'Employee Hub',
+                'roles-permissions': 'Roles and Permissions',
+                'quick-access-management': 'Form Management', helpdesk: 'Helpdesk',
                 'ai-assistant': 'AI Assistant', 'create-ticket': 'Create Ticket',
-                'check-ticket': 'Check Ticket', 'my-tickets': 'My Tickets', 'my-assets': 'My Assets',
+                'check-ticket': 'Check Ticket', 'my-tickets': 'My Tickets',
+                'helpdesk-queue': 'Staff Ticket Queue', 'my-assets': 'My Assets',
                 'knowledge-base': 'Knowledge Base', 'request-center': 'Request Center',
                 'sop-guidelines': 'SOP & Guidelines', policies: 'Policies',
                 announcements: 'Announcements', 'quick-links': 'Quick Links',
@@ -685,7 +800,12 @@
                 'main-menu': 'Main Menu'
             },
             id: {
-                home: 'Dashboard', 'employee-profile': 'Profil Karyawan', employees: 'Karyawan',
+                'employee-hub': 'Employee Hub', hris: 'HRIS',
+                'employee-services': 'Layanan Karyawan',
+                home: 'Dashboard', 'my-requests': 'Permintaan Saya',
+                'company-information': 'Informasi Perusahaan', faq: 'FAQ',
+                'employee-profile': 'Profil Karyawan', 'hris-dashboard': 'Dashboard HRIS',
+                employees: 'Karyawan',
                 'employee-directory': 'Direktori Karyawan', 'manpower-planning': 'Perencanaan Tenaga Kerja',
                 'new-joiner-submission': 'Pengajuan Karyawan Baru', onboarding: 'Orientasi Karyawan',
                 offboarding: 'Pengakhiran Kerja', reprimand: 'Teguran', recruitment: 'Rekrutmen',
@@ -702,9 +822,11 @@
                 departments: 'Departemen', 'organization-structure': 'Struktur Organisasi',
                 applications: 'Aplikasi', integrations: 'Integrasi', settings: 'Pengaturan',
                 'general-settings': 'Pengaturan Umum', 'user-management': 'Manajemen Pengguna',
-                'roles-permissions': 'Peran dan Izin', helpdesk: 'Employee Hub',
+                'roles-permissions': 'Peran dan Izin',
+                'quick-access-management': 'Manajemen Formulir', helpdesk: 'Helpdesk',
                 'ai-assistant': 'Asisten AI', 'create-ticket': 'Buat Tiket',
-                'check-ticket': 'Cek Tiket', 'my-tickets': 'Tiket Saya', 'my-assets': 'Aset Saya',
+                'check-ticket': 'Cek Tiket', 'my-tickets': 'Tiket Saya',
+                'helpdesk-queue': 'Antrean Tiket Staf', 'my-assets': 'Aset Saya',
                 'knowledge-base': 'Basis Pengetahuan', 'request-center': 'Pusat Permintaan',
                 'sop-guidelines': 'SOP dan Panduan', policies: 'Kebijakan',
                 announcements: 'Pengumuman', 'quick-links': 'Tautan Cepat',
@@ -810,6 +932,15 @@
                             <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Request Center</h2>
                             <p class="text-gray-500 mt-2 text-base max-w-2xl">A central hub to submit requirements to various departments. Choose your request category below.</p>
                         </div>
+                        <section class="mb-8" aria-labelledby="request-quick-forms-title">
+                            <div class="mb-4">
+                                <h3 id="request-quick-forms-title" class="text-xl font-extrabold text-gray-900">Business Trip & Office Forms</h3>
+                                <p class="mt-1 text-sm text-gray-500">Open the available request form. Forms are provided by the HRIS administrator.</p>
+                            </div>
+                            <div id="request-quick-access-grid" class="grid grid-cols-1 gap-5 md:grid-cols-2">
+                                <p class="col-span-full rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-500" role="status">Loading available forms...</p>
+                            </div>
+                        </section>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <!-- HR Request -->
                             <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:border-surya-green transition-colors group">
@@ -973,6 +1104,15 @@
                             <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Pusat Bantuan</h2>
                             <p class="text-gray-500 mt-2 text-base max-w-2xl">Pusat layanan untuk mengajukan kebutuhan ke berbagai departemen. Pilih kategori permintaan Anda di bawah ini.</p>
                         </div>
+                        <section class="mb-8" aria-labelledby="request-quick-forms-title">
+                            <div class="mb-4">
+                                <h3 id="request-quick-forms-title" class="text-xl font-extrabold text-gray-900">Form Perjalanan Dinas & Kantor</h3>
+                                <p class="mt-1 text-sm text-gray-500">Buka formulir permintaan yang tersedia. Formulir dikelola oleh administrator HRIS.</p>
+                            </div>
+                            <div id="request-quick-access-grid" class="grid grid-cols-1 gap-5 md:grid-cols-2">
+                                <p class="col-span-full rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-500" role="status">Memuat formulir yang tersedia...</p>
+                            </div>
+                        </section>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:border-surya-green transition-colors group">
                                 <div class="flex items-center space-x-4 mb-4">
@@ -1060,7 +1200,6 @@
 
         const STORAGE_KEYS = {
             employees: 'suryanesia_employees',
-            tickets: 'suryanesia_tickets',
             requests: 'suryanesia_requests',
             assets: 'suryanesia_assets',
             knowledgeBase: 'suryanesia_knowledge_base',
@@ -1105,24 +1244,6 @@
             ]);
             saveData(STORAGE_KEYS.employees, employees);
 
-            const tickets = loadData(STORAGE_KEYS.tickets, [
-                {
-                    id: 'IT-20260924-0001',
-                    employeeName: 'Employee',
-                    employeeId: 'EMP-001',
-                    department: 'IT',
-                    category: 'Network',
-                    priority: 'High',
-                    subject: 'WiFi Connection Issue',
-                    description: 'Laptop tidak bisa melakukan koneksi WiFi di ruang kerja. Sudah mencoba reconnect dan restart.',
-                    createdDate: '2026-09-24',
-                    status: 'Open',
-                    pic: 'IT Support',
-                    resolution: ''
-                }
-            ]);
-            saveData(STORAGE_KEYS.tickets, tickets);
-
             const requests = loadData(STORAGE_KEYS.requests, [
                 { requestId: 'REQ-20260924-0001', requestType: 'Software Request', employee: 'Employee', description: 'Need Adobe Creative Cloud license for design tasks.', date: '2026-09-24', status: 'Pending' }
             ]);
@@ -1151,78 +1272,12 @@
             saveData(STORAGE_KEYS.knowledgeBase, knowledge);
         }
 
-        function generateTicketId() {
-            const now = new Date();
-            const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
-            const tickets = loadData(STORAGE_KEYS.tickets, []);
-            let count = Number(localStorage.getItem('suryanesia_ticket_counter') || '0') + 1;
-            let id = `IT-${stamp}-${String(count).padStart(4, '0')}`;
-            while (tickets.some((ticket) => ticket.id === id)) {
-                count += 1;
-                id = `IT-${stamp}-${String(count).padStart(4, '0')}`;
-            }
-            localStorage.setItem('suryanesia_ticket_counter', String(count));
-            return id;
-        }
-
         function generateRequestId() {
             const now = new Date();
             const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
             const count = Number(localStorage.getItem('suryanesia_request_counter') || '0') + 1;
             localStorage.setItem('suryanesia_request_counter', String(count));
             return `REQ-${stamp}-${String(count).padStart(4, '0')}`;
-        }
-
-        function createTicket(ticketData = {}) {
-            const tickets = loadData(STORAGE_KEYS.tickets, []);
-            const now = ticketData.createdAt || new Date().toISOString();
-            const generatedTicket = {
-                id: ticketData.id || generateTicketId(),
-                name: ticketData.name || ticketData.employeeName || 'Employee',
-                employeeName: ticketData.name || ticketData.employeeName || 'Employee',
-                email: ticketData.email || '',
-                employeeId: ticketData.employeeId || '',
-                department: ticketData.department || 'IT',
-                category: ticketData.category || 'Other',
-                priority: ticketData.priority || 'Medium',
-                subject: ticketData.subject || 'Support Request',
-                description: ticketData.description || '',
-                attachment: ticketData.attachment || null,
-                createdAt: now,
-                createdDate: ticketData.createdDate || now.slice(0, 10),
-                updatedAt: ticketData.updatedAt || now,
-                status: ticketData.status || 'Open',
-                pic: ticketData.pic || null,
-                resolution: ticketData.resolution || null,
-                timeline: ticketData.timeline || [{ status: 'Open', at: now }]
-            };
-            tickets.unshift(generatedTicket);
-            saveData(STORAGE_KEYS.tickets, tickets);
-            return generatedTicket;
-        }
-
-        function getAllTickets() {
-            return loadData(STORAGE_KEYS.tickets, []);
-        }
-
-        function getTicket(ticketId) {
-            const normalizedId = String(ticketId || '').trim().toUpperCase();
-            return getAllTickets().find((ticket) => String(ticket.id).toUpperCase() === normalizedId) || null;
-        }
-
-        function updateTicket(ticketId, changes = {}) {
-            const tickets = getAllTickets();
-            const index = tickets.findIndex((ticket) => ticket.id === ticketId);
-            if (index < 0) return null;
-            const current = tickets[index];
-            const updatedAt = new Date().toISOString();
-            const next = { ...current, ...changes, updatedAt };
-            if (changes.status && changes.status !== current.status) {
-                next.timeline = [...(current.timeline || []), { status: changes.status, at: updatedAt }];
-            }
-            tickets[index] = next;
-            saveData(STORAGE_KEYS.tickets, tickets);
-            return next;
         }
 
         function createRequest(requestData = {}) {
@@ -1241,7 +1296,33 @@
         }
 
         function getUserTickets() {
-            return loadData(STORAGE_KEYS.tickets, []).filter((ticket) => ticket.employeeName === 'Employee' || ticket.employeeId === 'EMP-001');
+            return helpdeskTicketCache;
+        }
+
+        async function loadMyTickets() {
+            try {
+                const result = await employeeApi('/api/helpdesk/tickets');
+                helpdeskTicketCache = result.tickets || [];
+                helpdeskTicketsError = '';
+            } catch (error) {
+                helpdeskTicketCache = [];
+                helpdeskTicketsError = error.message || 'Unable to load tickets.';
+                const list = document.getElementById('my-ticket-list');
+                if (list) {
+                    list.textContent = helpdeskTicketsError;
+                    list.setAttribute('role', 'alert');
+                }
+            }
+            renderMyTickets();
+        }
+
+        async function loadEmployeeProfile() {
+            try {
+                employeeProfileData = await employeeApi('/api/portal/profile');
+            } catch (error) {
+                employeeProfileData = { error: error.message || 'Unable to load your profile.' };
+            }
+            renderEmployeeProfile();
         }
 
         function getUserAssets() {
@@ -1439,12 +1520,185 @@
             `;
         }
 
+        function configureEmployeeHubHome() {
+            views.en.home = `
+                <div class="fade-in mx-auto max-w-6xl p-4 pb-12 md:p-8">
+                    <section class="relative mb-8 flex flex-col items-center justify-between gap-8 overflow-hidden rounded-3xl bg-surya-green p-8 text-white shadow-lg md:flex-row md:p-10">
+                        <div class="absolute right-0 top-0 h-64 w-64 -translate-y-1/2 translate-x-1/3 rounded-full bg-white opacity-5 blur-3xl"></div>
+                        <div class="absolute bottom-0 left-0 h-40 w-40 -translate-x-1/4 translate-y-1/2 rounded-full bg-surya-yellow opacity-10 blur-2xl"></div>
+                        <div class="z-10 w-full md:w-2/3">
+                            <span class="mb-4 inline-block rounded-full border border-white/30 bg-white/20 px-3 py-1 text-xs font-bold tracking-wider text-white backdrop-blur-sm">SURYANESIA EMPLOYEE HUB</span>
+                            <h1 class="mb-3 text-3xl font-extrabold tracking-tight md:text-5xl">Everything you need,<br>in one place.</h1>
+                            <p class="max-w-xl text-lg text-surya-lightgreen opacity-90">A single portal to access SOPs, company policies, employee information, and request forms.</p>
+                            <p class="mt-4 text-sm font-semibold text-white/90"><span id="employee-hub-greeting">Good morning</span>, <span id="employee-hub-welcome-name">Employee</span></p>
+                            <p id="employee-hub-date" class="mt-1 text-sm font-medium text-white/75"></p>
+                        </div>
+                        <div class="z-10 hidden shrink-0 md:block">
+                            <div class="flex h-32 w-32 items-center justify-center rounded-full bg-white p-2 shadow-xl">
+                                <img src="favicon.ico" alt="Suryanesia icon" class="h-full w-full object-contain">
+                            </div>
+                        </div>
+                    </section>
+                    <section class="group mb-10 flex flex-col items-center justify-between gap-4 rounded-2xl border border-surya-yellow/50 bg-surya-lightyellow p-4 transition-all hover:shadow-md sm:flex-row" aria-label="Company update">
+                        <div class="flex items-center gap-4">
+                            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-surya-yellow text-xl text-surya-green shadow-sm"><i class="fas fa-bullhorn" aria-hidden="true"></i></div>
+                            <div>
+                                <h2 class="text-base font-bold text-gray-900 group-hover:text-surya-green">Company Updates</h2>
+                                <p class="mt-0.5 text-sm text-gray-600">There are no company announcements published yet.</p>
+                            </div>
+                        </div>
+                        <span class="whitespace-nowrap rounded-lg bg-white px-4 py-2 text-sm font-bold text-gray-500 shadow-sm">No new updates</span>
+                    </section>
+                    <section class="mb-10 grid grid-cols-1 gap-6 md:grid-cols-3" aria-label="Quick services">
+                        <button type="button" onclick="navigate('request')" class="hover-card flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-6 text-left">
+                            <span class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-surya-lightblue text-2xl text-blue-600"><i class="fas fa-bolt" aria-hidden="true"></i></span>
+                            <span class="mb-2 text-xl font-bold text-gray-900">⚡ Quick Request</span>
+                            <span class="mb-4 flex-1 text-sm text-gray-500">Submit requests for HR, IT Support, Procurement, Finance, or GA/Office needs.</span>
+                            <span class="mt-auto flex flex-wrap gap-2"><span class="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">HR</span><span class="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">IT</span><span class="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">Finance</span></span>
+                        </button>
+                        <button type="button" onclick="navigate('sop')" class="hover-card flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-6 text-left">
+                            <span class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-surya-lightgreen text-2xl text-surya-green"><i class="fas fa-search" aria-hidden="true"></i></span>
+                            <span class="mb-2 text-xl font-bold text-gray-900">📚 Find Something</span>
+                            <span class="mb-4 flex-1 text-sm text-gray-500">Search for reference documents, operational SOPs, Guidelines, and Company Policies.</span>
+                            <span class="mt-auto flex flex-wrap gap-2"><span class="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">SOP</span><span class="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">Policies</span><span class="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">Handbook</span></span>
+                        </button>
+                        <button type="button" onclick="navigate('links')" class="hover-card flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-6 text-left">
+                            <span class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-surya-lightyellow text-2xl text-orange-500"><i class="fas fa-external-link-alt" aria-hidden="true"></i></span>
+                            <span class="mb-2 text-xl font-bold text-gray-900">🔗 Quick Links</span>
+                            <span class="mb-4 flex-1 text-sm text-gray-500">Fast access to internal platforms like Talenta, ClickUp, and Company Calendar.</span>
+                            <span class="mt-auto flex flex-wrap gap-2"><span class="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">Talenta</span><span class="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">ClickUp</span><span class="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">Drive</span></span>
+                        </button>
+                    </section>
+                    <section class="mb-8">
+                        <div class="mb-4">
+                            <p class="text-xs font-bold uppercase tracking-widest text-surya-green">Frequently used</p>
+                            <h2 class="mt-1 text-2xl font-extrabold text-gray-900">Quick Access</h2>
+                        </div>
+                        <div id="employee-quick-access-grid" class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+                            <p class="col-span-full rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-500" role="status">Loading available forms...</p>
+                        </div>
+                    </section>
+                    <section class="mb-8 grid grid-cols-1 gap-5 xl:grid-cols-[1.2fr_0.8fr]" aria-label="Company Calendar and Quick Actions">
+                        <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                            <div class="flex items-center justify-between gap-3">
+                                <h2 class="text-base font-extrabold text-gray-900">Company Calendar</h2>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" onclick="moveDashboardCalendar(-1)" class="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50" aria-label="Previous month"><i class="fas fa-chevron-left" aria-hidden="true"></i></button>
+                                    <span id="dashboard-calendar-month" class="min-w-32 text-center text-sm font-bold text-gray-800"></span>
+                                    <button type="button" onclick="moveDashboardCalendar(1)" class="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50" aria-label="Next month"><i class="fas fa-chevron-right" aria-hidden="true"></i></button>
+                                </div>
+                            </div>
+                            <div id="dashboard-calendar" class="mt-4"></div>
+                            <p class="mt-4 rounded-xl bg-gray-50 p-3 text-sm text-gray-500">No company events have been configured.</p>
+                        </article>
+                        <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                            <h2 class="text-base font-extrabold text-gray-900">Quick Actions</h2>
+                            <div class="mt-4 grid gap-2">
+                                <button type="button" onclick="navigate('my-requests')" class="flex items-center gap-3 rounded-xl border border-gray-200 p-3 text-left text-sm font-semibold text-gray-700 hover:border-surya-green hover:bg-surya-lightgreen/40"><i class="fas fa-list-check w-5 text-center text-surya-green" aria-hidden="true"></i>My Requests</button>
+                                <button type="button" onclick="openTicketForm()" class="flex items-center gap-3 rounded-xl border border-gray-200 p-3 text-left text-sm font-semibold text-gray-700 hover:border-surya-green hover:bg-surya-lightgreen/40"><i class="fas fa-ticket-alt w-5 text-center text-surya-green" aria-hidden="true"></i>Create Helpdesk Ticket</button>
+                                <button type="button" onclick="navigate('company-information')" class="flex items-center gap-3 rounded-xl border border-gray-200 p-3 text-left text-sm font-semibold text-gray-700 hover:border-surya-green hover:bg-surya-lightgreen/40"><i class="fas fa-building w-5 text-center text-surya-green" aria-hidden="true"></i>Company Information</button>
+                                <button type="button" onclick="navigate('links')" class="flex items-center gap-3 rounded-xl border border-gray-200 p-3 text-left text-sm font-semibold text-gray-700 hover:border-surya-green hover:bg-surya-lightgreen/40"><i class="fas fa-link w-5 text-center text-surya-green" aria-hidden="true"></i>Quick Links</button>
+                            </div>
+                        </article>
+                    </section>
+                </div>
+            `;
+            views.id.home = `
+                <div class="fade-in mx-auto max-w-6xl p-4 pb-12 md:p-8">
+                    <section class="relative mb-8 flex flex-col items-center justify-between gap-8 overflow-hidden rounded-3xl bg-surya-green p-8 text-white shadow-lg md:flex-row md:p-10">
+                        <div class="absolute right-0 top-0 h-64 w-64 -translate-y-1/2 translate-x-1/3 rounded-full bg-white opacity-5 blur-3xl"></div>
+                        <div class="absolute bottom-0 left-0 h-40 w-40 -translate-x-1/4 translate-y-1/2 rounded-full bg-surya-yellow opacity-10 blur-2xl"></div>
+                        <div class="z-10 w-full md:w-2/3">
+                            <span class="mb-4 inline-block rounded-full border border-white/30 bg-white/20 px-3 py-1 text-xs font-bold tracking-wider text-white backdrop-blur-sm">PORTAL KARYAWAN SURYANESIA</span>
+                            <h1 class="mb-3 text-3xl font-extrabold tracking-tight md:text-5xl">Semua yang Anda butuhkan,<br>di satu tempat.</h1>
+                            <p class="max-w-xl text-lg text-surya-lightgreen opacity-90">Satu portal untuk mengakses SOP, kebijakan perusahaan, informasi karyawan, dan formulir permintaan.</p>
+                            <p class="mt-4 text-sm font-semibold text-white/90"><span id="employee-hub-greeting">Selamat pagi</span>, <span id="employee-hub-welcome-name">Karyawan</span></p>
+                            <p id="employee-hub-date" class="mt-1 text-sm font-medium text-white/75"></p>
+                        </div>
+                        <div class="z-10 hidden shrink-0 md:block">
+                            <div class="flex h-32 w-32 items-center justify-center rounded-full bg-white p-2 shadow-xl">
+                                <img src="favicon.ico" alt="Suryanesia icon" class="h-full w-full object-contain">
+                            </div>
+                        </div>
+                    </section>
+                    <section class="group mb-10 flex flex-col items-center justify-between gap-4 rounded-2xl border border-surya-yellow/50 bg-surya-lightyellow p-4 transition-all hover:shadow-md sm:flex-row" aria-label="Pembaruan perusahaan">
+                        <div class="flex items-center gap-4">
+                            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-surya-yellow text-xl text-surya-green shadow-sm"><i class="fas fa-bullhorn" aria-hidden="true"></i></div>
+                            <div>
+                                <h2 class="text-base font-bold text-gray-900 group-hover:text-surya-green">Pembaruan Perusahaan</h2>
+                                <p class="mt-0.5 text-sm text-gray-600">Belum ada pengumuman perusahaan yang diterbitkan.</p>
+                            </div>
+                        </div>
+                        <span class="whitespace-nowrap rounded-lg bg-white px-4 py-2 text-sm font-bold text-gray-500 shadow-sm">Tidak ada pembaruan baru</span>
+                    </section>
+                    <section class="mb-10 grid grid-cols-1 gap-6 md:grid-cols-3" aria-label="Layanan cepat">
+                        <button type="button" onclick="navigate('request')" class="hover-card flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-6 text-left">
+                            <span class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-surya-lightblue text-2xl text-blue-600"><i class="fas fa-bolt" aria-hidden="true"></i></span>
+                            <span class="mb-2 text-xl font-bold text-gray-900">⚡ Permintaan Cepat</span>
+                            <span class="mb-4 flex-1 text-sm text-gray-500">Ajukan permintaan untuk kebutuhan HR, IT Support, Procurement, Finance, atau GA/Kantor.</span>
+                            <span class="mt-auto flex flex-wrap gap-2"><span class="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">HR</span><span class="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">IT</span><span class="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">Keuangan</span></span>
+                        </button>
+                        <button type="button" onclick="navigate('sop')" class="hover-card flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-6 text-left">
+                            <span class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-surya-lightgreen text-2xl text-surya-green"><i class="fas fa-search" aria-hidden="true"></i></span>
+                            <span class="mb-2 text-xl font-bold text-gray-900">📚 Cari Sesuatu</span>
+                            <span class="mb-4 flex-1 text-sm text-gray-500">Cari dokumen referensi, SOP operasional, panduan, dan kebijakan perusahaan.</span>
+                            <span class="mt-auto flex flex-wrap gap-2"><span class="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">SOP</span><span class="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">Kebijakan</span><span class="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">Buku Panduan</span></span>
+                        </button>
+                        <button type="button" onclick="navigate('links')" class="hover-card flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-6 text-left">
+                            <span class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-surya-lightyellow text-2xl text-orange-500"><i class="fas fa-external-link-alt" aria-hidden="true"></i></span>
+                            <span class="mb-2 text-xl font-bold text-gray-900">🔗 Tautan Cepat</span>
+                            <span class="mb-4 flex-1 text-sm text-gray-500">Akses cepat ke platform internal seperti Talenta, ClickUp, dan Kalender Perusahaan.</span>
+                            <span class="mt-auto flex flex-wrap gap-2"><span class="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">Talenta</span><span class="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">ClickUp</span><span class="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">Drive</span></span>
+                        </button>
+                    </section>
+                    <section class="mb-8">
+                        <div class="mb-4">
+                            <p class="text-xs font-bold uppercase tracking-widest text-surya-green">Sering digunakan</p>
+                            <h2 class="mt-1 text-2xl font-extrabold text-gray-900">Akses Cepat</h2>
+                        </div>
+                        <div id="employee-quick-access-grid" class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+                            <p class="col-span-full rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-500" role="status">Memuat formulir yang tersedia...</p>
+                        </div>
+                    </section>
+                    <section class="mb-8 grid grid-cols-1 gap-5 xl:grid-cols-[1.2fr_0.8fr]" aria-label="Kalender Perusahaan dan Aksi Cepat">
+                        <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                            <div class="flex items-center justify-between gap-3">
+                                <h2 class="text-base font-extrabold text-gray-900">Kalender Perusahaan</h2>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" onclick="moveDashboardCalendar(-1)" class="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50" aria-label="Bulan sebelumnya"><i class="fas fa-chevron-left" aria-hidden="true"></i></button>
+                                    <span id="dashboard-calendar-month" class="min-w-32 text-center text-sm font-bold text-gray-800"></span>
+                                    <button type="button" onclick="moveDashboardCalendar(1)" class="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50" aria-label="Bulan berikutnya"><i class="fas fa-chevron-right" aria-hidden="true"></i></button>
+                                </div>
+                            </div>
+                            <div id="dashboard-calendar" class="mt-4"></div>
+                            <p class="mt-4 rounded-xl bg-gray-50 p-3 text-sm text-gray-500">Belum ada acara perusahaan yang dikonfigurasi.</p>
+                        </article>
+                        <article class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                            <h2 class="text-base font-extrabold text-gray-900">Aksi Cepat</h2>
+                            <div class="mt-4 grid gap-2">
+                                <button type="button" onclick="navigate('my-requests')" class="flex items-center gap-3 rounded-xl border border-gray-200 p-3 text-left text-sm font-semibold text-gray-700 hover:border-surya-green hover:bg-surya-lightgreen/40"><i class="fas fa-list-check w-5 text-center text-surya-green" aria-hidden="true"></i>Permintaan Saya</button>
+                                <button type="button" onclick="openTicketForm()" class="flex items-center gap-3 rounded-xl border border-gray-200 p-3 text-left text-sm font-semibold text-gray-700 hover:border-surya-green hover:bg-surya-lightgreen/40"><i class="fas fa-ticket-alt w-5 text-center text-surya-green" aria-hidden="true"></i>Buat Tiket Helpdesk</button>
+                                <button type="button" onclick="navigate('company-information')" class="flex items-center gap-3 rounded-xl border border-gray-200 p-3 text-left text-sm font-semibold text-gray-700 hover:border-surya-green hover:bg-surya-lightgreen/40"><i class="fas fa-building w-5 text-center text-surya-green" aria-hidden="true"></i>Informasi Perusahaan</button>
+                                <button type="button" onclick="navigate('links')" class="flex items-center gap-3 rounded-xl border border-gray-200 p-3 text-left text-sm font-semibold text-gray-700 hover:border-surya-green hover:bg-surya-lightgreen/40"><i class="fas fa-link w-5 text-center text-surya-green" aria-hidden="true"></i>Tautan Cepat</button>
+                            </div>
+                        </article>
+                    </section>
+                </div>
+            `;
+        }
+
+        configureEmployeeHubHome();
+
         function setDashboardHome() {
             const shell = (loadingText) => `
                 <div id="dashboard-root" class="fade-in mx-auto w-full max-w-7xl p-4 pb-12 md:p-8">
-                    <div class="flex min-h-48 items-center justify-center rounded-2xl border border-gray-200 bg-white text-sm text-gray-500" role="status">
-                        <i class="fas fa-circle-notch mr-3 animate-spin text-surya-green" aria-hidden="true"></i>
-                        <span>${loadingText}</span>
+                    <div class="space-y-6" role="status" aria-label="${loadingText}">
+                        <span class="sr-only">${loadingText}</span>
+                        <div class="h-24 animate-pulse rounded-2xl bg-gray-200"></div>
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                            ${Array.from({ length: 4 }, () => '<div class="h-32 animate-pulse rounded-2xl border border-gray-200 bg-white p-5"><div class="h-4 w-2/3 animate-pulse rounded bg-gray-200"></div><div class="mt-6 h-8 w-1/3 animate-pulse rounded bg-gray-200"></div></div>').join('')}
+                        </div>
+                        <div class="h-56 animate-pulse rounded-2xl border border-gray-200 bg-white"></div>
                     </div>
                 </div>
             `;
@@ -1491,6 +1745,16 @@
             userName: '',
             requestId: 0,
             calendarMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+        };
+
+        const quickAccessState = { loading: false, error: '', items: [] };
+        const quickAccessAdminState = {
+            loading: false,
+            error: '',
+            items: [],
+            editorOpen: false,
+            editingId: null,
+            saving: false
         };
 
         function employeeCopy() {
@@ -1983,6 +2247,344 @@
             return payload;
         }
 
+        function escapeQuickAccessText(value) {
+            return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            })[character]);
+        }
+
+        function isGoogleFormsUrl(value) {
+            try {
+                const url = new URL(value);
+                const validShortLink = url.hostname === 'forms.gle' &&
+                    /^\/[A-Za-z0-9_-]+\/?$/.test(url.pathname);
+                const validFullLink = ['docs.google.com', 'forms.google.com'].includes(url.hostname) &&
+                    /\/forms\/(?:u\/\d+\/)?d\/(?:e\/)?[^/]+/.test(url.pathname);
+                return url.protocol === 'https:' &&
+                    ['docs.google.com', 'forms.google.com', 'forms.gle'].includes(url.hostname) &&
+                    (validShortLink || validFullLink) &&
+                    !url.username && !url.password;
+            } catch {
+                return false;
+            }
+        }
+
+        function employeeHubDashboardView() {
+            const name = employeeProfileData?.employee?.name ||
+                employeeProfileData?.account?.username ||
+                hrisAuthState.user?.username ||
+                (currentLang === 'id' ? 'Karyawan' : 'Employee');
+            const date = new Intl.DateTimeFormat(
+                currentLang === 'id' ? 'id-ID' : 'en-US',
+                { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }
+            ).format(new Date());
+            const hour = new Date().getHours();
+            const greeting = currentLang === 'id'
+                ? (hour < 11 ? 'Selamat pagi' : hour < 15 ? 'Selamat siang' : hour < 18 ? 'Selamat sore' : 'Selamat malam')
+                : (hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening');
+            const template = views[currentLang].home;
+            return template
+                .replace('id="employee-hub-welcome-name">Employee</span>', `id="employee-hub-welcome-name">${escapeQuickAccessText(name)}</span>`)
+                .replace('id="employee-hub-welcome-name">Karyawan</span>', `id="employee-hub-welcome-name">${escapeQuickAccessText(name)}</span>`)
+                .replace(/id="employee-hub-greeting">[^<]*/, `id="employee-hub-greeting">${escapeQuickAccessText(greeting)}`)
+                .replace(/(<p id="employee-hub-date"[^>]*>)[^<]*/, `$1${escapeQuickAccessText(date)}`);
+        }
+
+        function quickAccessCardMarkup(item, gridId = '') {
+            const title = escapeQuickAccessText(item.title);
+            const description = escapeQuickAccessText(item.description);
+            const category = escapeQuickAccessText(item.category);
+            const icon = escapeQuickAccessText(item.icon);
+            const id = escapeQuickAccessText(item.id);
+            if (gridId === 'request-quick-access-grid') {
+                const colorTheme = /office|amenit/i.test(`${item.title} ${item.category}`)
+                    ? {
+                        icon: 'bg-surya-lightyellow text-orange-600',
+                        title: 'text-orange-600',
+                        button: 'group-hover:bg-orange-500'
+                    }
+                    : /trip|travel|administration/i.test(`${item.title} ${item.category}`)
+                        ? {
+                            icon: 'bg-surya-lightblue text-blue-600',
+                            title: 'text-blue-600',
+                            button: 'group-hover:bg-blue-600'
+                        }
+                        : {
+                            icon: 'bg-surya-lightgreen text-surya-green',
+                            title: 'text-surya-green',
+                            button: 'group-hover:bg-surya-green'
+                        };
+                return `
+                    <article class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:border-surya-green transition-colors group flex h-full flex-col">
+                        <div class="flex items-center space-x-4 mb-4">
+                            <div class="w-12 h-12 ${colorTheme.icon} rounded-xl flex items-center justify-center text-xl shrink-0"><i class="fas ${icon}" aria-hidden="true"></i></div>
+                            <div>
+                                <p class="text-xs font-bold uppercase tracking-wider text-gray-500">${category}</p>
+                                <h3 class="text-lg font-bold ${colorTheme.title}">${title}</h3>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-4 min-h-[40px] flex-1">${description}</p>
+                        <button type="button" class="w-full bg-gray-50 border border-gray-200 text-gray-700 font-bold py-2.5 px-4 rounded-xl ${colorTheme.button} group-hover:text-white transition-colors flex items-center justify-center space-x-2" onclick="openQuickAccessForm('${id}')">
+                            <span>${currentLang === 'id' ? 'Buka Formulir' : 'Open Form'}</span><i class="fas fa-arrow-up-right-from-square text-xs" aria-hidden="true"></i>
+                        </button>
+                    </article>
+                `;
+            }
+            return `
+                <article class="hover-card rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                    <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-surya-lightgreen text-xl text-surya-green"><i class="fas ${icon}" aria-hidden="true"></i></div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-surya-green">${category}</p>
+                    <h3 class="mt-2 text-lg font-extrabold text-gray-900">${title}</h3>
+                    <p class="mt-2 min-h-10 text-sm leading-relaxed text-gray-600">${description}</p>
+                    <button type="button" class="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-surya-green px-4 py-2.5 text-sm font-bold text-white hover:bg-green-800" onclick="openQuickAccessForm('${id}')">
+                        ${currentLang === 'id' ? 'Buka Formulir' : 'Open Form'} <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                    </button>
+                </article>
+            `;
+        }
+
+        function renderQuickAccessGrid(gridId) {
+            const grid = document.getElementById(gridId);
+            if (!grid) return;
+            if (quickAccessState.loading) {
+                const loadingLabel = currentLang === 'id' ? 'Memuat formulir yang tersedia...' : 'Loading available forms...';
+                const requestGrid = gridId === 'request-quick-access-grid';
+                const skeletonGrid = requestGrid ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3';
+                const skeletonCount = requestGrid ? 2 : 3;
+                const skeletonCard = requestGrid
+                    ? '<div class="h-56 animate-pulse rounded-2xl border border-gray-200 bg-white p-6"><div class="flex items-center gap-4"><div class="h-12 w-12 animate-pulse rounded-xl bg-gray-200"></div><div class="flex-1"><div class="h-3 w-1/3 animate-pulse rounded bg-gray-200"></div><div class="mt-3 h-5 w-2/3 animate-pulse rounded bg-gray-200"></div></div></div><div class="mt-6 h-4 w-full animate-pulse rounded bg-gray-200"></div><div class="mt-2 h-4 w-4/5 animate-pulse rounded bg-gray-200"></div><div class="mt-6 h-10 w-full animate-pulse rounded-xl bg-gray-200"></div></div>'
+                    : '<div class="h-48 animate-pulse rounded-2xl border border-gray-200 bg-white p-5"><div class="h-12 w-12 animate-pulse rounded-xl bg-gray-200"></div><div class="mt-5 h-3 w-1/3 animate-pulse rounded bg-gray-200"></div><div class="mt-3 h-5 w-2/3 animate-pulse rounded bg-gray-200"></div><div class="mt-3 h-4 w-full animate-pulse rounded bg-gray-200"></div><div class="mt-2 h-4 w-4/5 animate-pulse rounded bg-gray-200"></div></div>';
+                grid.innerHTML = `<div class="col-span-full grid ${skeletonGrid} gap-5" role="status" aria-label="${loadingLabel}">${Array.from({ length: skeletonCount }, () => skeletonCard).join('')}</div>`;
+                return;
+            }
+            if (quickAccessState.error) {
+                grid.innerHTML = `<p class="col-span-full rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700" role="alert">${escapeQuickAccessText(quickAccessState.error)}</p>`;
+                return;
+            }
+            if (!quickAccessState.items.length) {
+                const message = currentLang === 'id'
+                    ? (gridId === 'request-quick-access-grid'
+                        ? 'Form perjalanan dinas dan kebutuhan kantor akan muncul di sini setelah dikonfigurasi dan diaktifkan oleh administrator.'
+                        : 'Belum ada formulir aktif yang dikonfigurasi.')
+                    : (gridId === 'request-quick-access-grid'
+                        ? 'Business trip and office forms will appear here after an administrator configures and activates them.'
+                        : 'No active forms have been configured yet.');
+                grid.innerHTML = `<p class="col-span-full rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-500">${message}</p>`;
+                return;
+            }
+            grid.innerHTML = quickAccessState.items.map((item) => quickAccessCardMarkup(item, gridId)).join('');
+        }
+
+        function renderEmployeeQuickAccessGrid() {
+            renderQuickAccessGrid('employee-quick-access-grid');
+        }
+
+        async function loadQuickAccess() {
+            quickAccessState.loading = true;
+            quickAccessState.error = '';
+            renderEmployeeQuickAccessGrid();
+            renderQuickAccessGrid('request-quick-access-grid');
+            try {
+                const result = await employeeApi('/api/quick-access');
+                quickAccessState.items = Array.isArray(result.items) ? result.items : [];
+            } catch (error) {
+                quickAccessState.error = error.message || 'Could not load Quick Access forms.';
+            } finally {
+                quickAccessState.loading = false;
+                renderEmployeeQuickAccessGrid();
+                renderQuickAccessGrid('request-quick-access-grid');
+            }
+        }
+
+        async function openQuickAccessForm(itemId) {
+            let item = quickAccessState.items.find((entry) => entry.id === itemId);
+            if (!item) {
+                try {
+                    const result = await employeeApi(`/api/quick-access/${encodeURIComponent(itemId)}`);
+                    item = result.item;
+                } catch (error) {
+                    showToast(error.message || 'This form is not available.');
+                    return;
+                }
+            }
+            if (!item?.targetUrl || !isGoogleFormsUrl(item.targetUrl)) {
+                showToast(currentLang === 'id' ? 'Formulir ini belum dikonfigurasi.' : 'This form has not been configured.');
+                return;
+            }
+            window.open(item.targetUrl, '_blank', 'noopener,noreferrer');
+        }
+
+        function quickAccessManagementView() {
+            return `
+                <div class="fade-in mx-auto w-full max-w-7xl p-4 pb-12 md:p-8">
+                    <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+                        <div><p class="text-xs font-bold uppercase tracking-widest text-surya-green">HRIS Settings</p><h1 class="mt-1 text-3xl font-extrabold text-gray-900">${currentLang === 'id' ? 'Manajemen Formulir' : 'Form Management'}</h1><p class="mt-2 text-gray-600">Manage employee-facing forms and their visibility.</p></div>
+                        <button type="button" onclick="openQuickAccessEditor()" class="rounded-xl bg-surya-green px-4 py-2.5 text-sm font-bold text-white hover:bg-green-800"><i class="fas fa-plus mr-2" aria-hidden="true"></i>Add New</button>
+                    </div>
+                    <div id="quick-access-editor-container" class="mb-6"></div>
+                    <div id="quick-access-admin-content" class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm" role="status">Loading Quick Access items...</div>
+                </div>
+            `;
+        }
+
+        function quickAccessEditorMarkup() {
+            if (!quickAccessAdminState.editorOpen) return '';
+            const item = quickAccessAdminState.items.find((entry) => entry.id === quickAccessAdminState.editingId) || {
+                title: '', description: '', category: '', icon: 'fa-link', targetUrl: '',
+                displayOrder: 0, visibility: 'employees', status: 'draft'
+            };
+            const value = (field) => escapeQuickAccessText(item[field] ?? '');
+            return `
+                <form id="quick-access-form" onsubmit="saveQuickAccess(event)" class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+                    <h2 class="mb-5 text-xl font-extrabold text-gray-900">${quickAccessAdminState.editingId ? 'Edit Quick Access Item' : 'Add Quick Access Item'}</h2>
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <label class="text-sm font-semibold text-gray-700">Form Title<input name="title" required maxlength="120" value="${value('title')}" class="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 font-normal"></label>
+                        <label class="text-sm font-semibold text-gray-700">Category<input name="category" required maxlength="80" value="${value('category')}" class="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 font-normal"></label>
+                        <label class="text-sm font-semibold text-gray-700 md:col-span-2">Description<textarea name="description" required maxlength="500" rows="2" class="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 font-normal">${value('description')}</textarea></label>
+                        <label class="text-sm font-semibold text-gray-700">Icon (Font Awesome class)<input name="icon" required maxlength="60" pattern="fa-[a-z0-9]+(?:-[a-z0-9]+)*" value="${value('icon')}" class="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 font-normal"></label>
+                        <label class="text-sm font-semibold text-gray-700">Google Forms URL<input name="targetUrl" type="url" maxlength="2048" value="${value('targetUrl')}" placeholder="https://docs.google.com/forms/..." class="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 font-normal"></label>
+                        <label class="text-sm font-semibold text-gray-700">Display Order<input name="displayOrder" type="number" min="0" max="10000" required value="${value('displayOrder')}" class="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 font-normal"></label>
+                        <label class="text-sm font-semibold text-gray-700">Visibility<select name="visibility" class="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 font-normal"><option value="employees" ${item.visibility === 'employees' ? 'selected' : ''}>All Employees</option><option value="hr_admin" ${item.visibility === 'hr_admin' ? 'selected' : ''}>HR Admin</option></select></label>
+                        <label class="text-sm font-semibold text-gray-700">Status<select name="status" class="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 font-normal"><option value="draft" ${item.status === 'draft' ? 'selected' : ''}>Draft</option><option value="inactive" ${item.status === 'inactive' ? 'selected' : ''}>Inactive</option><option value="active" ${item.status === 'active' ? 'selected' : ''}>Active</option></select></label>
+                    </div>
+                    <p class="mt-3 text-xs text-gray-500">Only HTTPS Google Forms links are accepted. An active item requires a configured URL.</p>
+                    <div class="mt-5 flex flex-wrap justify-end gap-3"><button type="button" onclick="cancelQuickAccessEditor()" class="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-bold text-gray-600">Cancel</button><button type="submit" class="rounded-xl bg-surya-green px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50" ${quickAccessAdminState.saving ? 'disabled' : ''}>${quickAccessAdminState.saving ? 'Saving...' : 'Save'}</button></div>
+                </form>
+            `;
+        }
+
+        function quickAccessAdminTableMarkup() {
+            const container = document.getElementById('quick-access-admin-content');
+            if (!container) return;
+            if (quickAccessAdminState.loading) {
+                container.innerHTML = '<div class="p-6 text-sm text-gray-500" role="status">Loading Quick Access items...</div>';
+                return;
+            }
+            if (quickAccessAdminState.error) {
+                container.innerHTML = `<p class="p-6 text-sm text-rose-700" role="alert">${escapeQuickAccessText(quickAccessAdminState.error)}</p>`;
+                return;
+            }
+            if (!quickAccessAdminState.items.length) {
+                container.innerHTML = '<p class="p-6 text-sm text-gray-500">No forms are configured.</p>';
+                return;
+            }
+            container.innerHTML = `
+                <div class="overflow-x-auto"><table class="w-full min-w-[950px] text-left text-sm">
+                    <thead class="bg-gray-50 text-xs uppercase tracking-wider text-gray-500"><tr><th class="px-4 py-3">Icon / Title</th><th class="px-4 py-3">Description / Category</th><th class="px-4 py-3">Form URL</th><th class="px-4 py-3">Visibility</th><th class="px-4 py-3">Order</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Actions</th></tr></thead>
+                    <tbody class="divide-y divide-gray-100">${quickAccessAdminState.items.map((item) => {
+                        const id = escapeQuickAccessText(item.id);
+                        const preview = isGoogleFormsUrl(item.targetUrl)
+                            ? `<a href="${escapeQuickAccessText(item.targetUrl)}" target="_blank" rel="noopener noreferrer" class="text-surya-green underline">Preview</a>`
+                            : 'Not configured';
+                        return `<tr><td class="px-4 py-4"><div class="flex items-center gap-3"><i class="fas ${escapeQuickAccessText(item.icon)} text-surya-green"></i><span class="font-bold text-gray-900">${escapeQuickAccessText(item.title)}</span></div></td><td class="px-4 py-4"><p>${escapeQuickAccessText(item.description)}</p><p class="mt-1 text-xs text-gray-500">${escapeQuickAccessText(item.category)}</p></td><td class="max-w-56 truncate px-4 py-4 text-gray-500">${preview}</td><td class="px-4 py-4">${item.visibility === 'employees' ? 'All Employees' : 'HR Admin'}</td><td class="px-4 py-4">${escapeQuickAccessText(item.displayOrder)}</td><td class="px-4 py-4"><span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold">${escapeQuickAccessText(item.status)}</span></td><td class="px-4 py-4"><div class="flex flex-wrap gap-2"><button type="button" onclick="openQuickAccessEditor('${id}')" class="font-bold text-surya-green">Edit</button><button type="button" onclick="previewQuickAccess('${id}')" class="font-bold text-blue-700">Preview</button><button type="button" onclick="changeQuickAccessStatus('${id}','${item.status === 'active' ? 'inactive' : 'active'}')" class="font-bold text-amber-700">${item.status === 'active' ? 'Deactivate' : 'Activate'}</button><button type="button" onclick="deleteQuickAccess('${id}')" class="font-bold text-rose-700">Delete</button></div></td></tr>`;
+                    }).join('')}</tbody>
+                </table></div>
+            `;
+        }
+
+        function renderQuickAccessManagement() {
+            const editor = document.getElementById('quick-access-editor-container');
+            if (editor) editor.innerHTML = quickAccessEditorMarkup();
+            quickAccessAdminTableMarkup();
+        }
+
+        async function initializeQuickAccessManagement() {
+            quickAccessAdminState.loading = true;
+            quickAccessAdminState.error = '';
+            renderQuickAccessManagement();
+            try {
+                const result = await employeeApi('/api/admin/quick-access');
+                quickAccessAdminState.items = Array.isArray(result.items) ? result.items : [];
+            } catch (error) {
+                quickAccessAdminState.error = error.message || 'Could not load Quick Access settings.';
+            } finally {
+                quickAccessAdminState.loading = false;
+                renderQuickAccessManagement();
+            }
+        }
+
+        function openQuickAccessEditor(itemId = null) {
+            quickAccessAdminState.editingId = itemId;
+            quickAccessAdminState.editorOpen = true;
+            renderQuickAccessManagement();
+            document.querySelector('#quick-access-form input[name="title"]')?.focus();
+        }
+
+        function cancelQuickAccessEditor() {
+            quickAccessAdminState.editorOpen = false;
+            quickAccessAdminState.editingId = null;
+            renderQuickAccessManagement();
+        }
+
+        async function saveQuickAccess(event) {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const fields = new FormData(form);
+            const payload = Object.fromEntries(fields.entries());
+            payload.displayOrder = Number(payload.displayOrder);
+            quickAccessAdminState.saving = true;
+            renderQuickAccessManagement();
+            try {
+                const itemId = quickAccessAdminState.editingId;
+                const path = itemId
+                    ? `/api/admin/quick-access/${encodeURIComponent(itemId)}`
+                    : '/api/admin/quick-access';
+                await employeeApi(path, {
+                    method: itemId ? 'PUT' : 'POST',
+                    body: JSON.stringify(payload)
+                });
+                quickAccessAdminState.editorOpen = false;
+                quickAccessAdminState.editingId = null;
+                showToast('Quick Access item saved.');
+                await initializeQuickAccessManagement();
+            } catch (error) {
+                showToast(error.message || 'Could not save this item.');
+            } finally {
+                quickAccessAdminState.saving = false;
+                renderQuickAccessManagement();
+            }
+        }
+
+        function previewQuickAccess(itemId) {
+            const item = quickAccessAdminState.items.find((entry) => entry.id === itemId);
+            if (!item?.targetUrl || !isGoogleFormsUrl(item.targetUrl)) {
+                showToast('This form has not been configured with a valid Google Forms URL.');
+                return;
+            }
+            window.open(item.targetUrl, '_blank', 'noopener,noreferrer');
+        }
+
+        async function changeQuickAccessStatus(itemId, status) {
+            try {
+                await employeeApi(`/api/admin/quick-access/${encodeURIComponent(itemId)}/status`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ status })
+                });
+                await initializeQuickAccessManagement();
+            } catch (error) {
+                showToast(error.message || 'Could not update item status.');
+            }
+        }
+
+        async function deleteQuickAccess(itemId) {
+            const item = quickAccessAdminState.items.find((entry) => entry.id === itemId);
+            if (!item || !window.confirm(`Delete "${item.title}"? This cannot be undone.`)) return;
+            try {
+                await employeeApi(`/api/admin/quick-access/${encodeURIComponent(itemId)}`, {
+                    method: 'DELETE'
+                });
+                quickAccessAdminState.items = quickAccessAdminState.items.filter((entry) => entry.id !== itemId);
+                renderQuickAccessManagement();
+                showToast('Quick Access item deleted.');
+            } catch (error) {
+                showToast(error.message || 'Could not delete this item.');
+            }
+        }
+
         function normalizeEmployeeFilters(filters) {
             const value = (name, maxLength = 100) => (
                 typeof filters?.[name] === 'string' ? filters[name].trim().slice(0, maxLength) : ''
@@ -2314,7 +2916,7 @@
                         </div>
                         <dl id="employee-detail-fields" class="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3"></dl>
                     </section>
-                    <div id="employee-form-modal" class="fixed inset-0 z-[90] hidden items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="employee-form-title">
+                    <div id="employee-form-modal" class="app-modal fixed inset-0 z-[90] hidden items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="employee-form-title">
                         <div class="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
                             <div class="mb-5 flex items-start justify-between gap-4">
                                 <div><p class="text-xs font-bold uppercase tracking-wider text-surya-green">Core HR</p><h2 id="employee-form-title" class="mt-1 text-xl font-extrabold text-gray-900">${text.formTitle}</h2></div>
@@ -2528,15 +3130,31 @@
 
         views.en['my-tickets'] = `
             <div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12">
-                <div class="mb-8"><span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Public Helpdesk</span><h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Check Ticket Status</h2><p class="mt-2 text-gray-500">For privacy, ticket details are shown only when you provide the exact Ticket ID.</p></div>
-                <div class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm"><div class="flex flex-col gap-3 sm:flex-row"><input id="my-ticket-search" placeholder="IT-YYYYMMDD-XXXX" class="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm uppercase"><button onclick="openCheckTicket(document.getElementById('my-ticket-search').value)" class="rounded-xl bg-surya-green px-5 py-3 font-bold text-white">🔎 Cek Status</button></div></div>
+                <div class="mb-8"><span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Helpdesk</span><h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">My Tickets</h2><p class="mt-2 text-gray-500">View your submitted tickets and their latest updates.</p></div>
+                <div class="mb-5 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm"><div class="grid gap-3 sm:grid-cols-[1fr_auto]"><input id="my-ticket-search" oninput="renderMyTickets()" placeholder="Search subject or ticket ID" class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm"><select id="my-ticket-status" onchange="renderMyTickets()" class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm"><option value="all">All statuses</option><option>Open</option><option>In Progress</option><option>Pending</option><option>Resolved</option><option>Closed</option></select></div></div>
+                <div id="my-ticket-list" class="grid gap-3" aria-live="polite"></div>
             </div>
         `;
 
         views.id['my-tickets'] = `
             <div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12">
-                <div class="mb-8"><span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Helpdesk Publik</span><h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Cek Status Tiket</h2><p class="mt-2 text-gray-500">Untuk privasi, detail tiket hanya ditampilkan jika Anda memberikan ID Tiket yang tepat.</p></div>
-                <div class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm"><div class="flex flex-col gap-3 sm:flex-row"><input id="my-ticket-search" placeholder="IT-YYYYMMDD-XXXX" class="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm uppercase"><button onclick="openCheckTicket(document.getElementById('my-ticket-search').value)" class="rounded-xl bg-surya-green px-5 py-3 font-bold text-white">🔎 Cek Status</button></div></div>
+                <div class="mb-8"><span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Helpdesk</span><h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Tiket Saya</h2><p class="mt-2 text-gray-500">Lihat tiket yang Anda kirim dan pembaruan terakhirnya.</p></div>
+                <div class="mb-5 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm"><div class="grid gap-3 sm:grid-cols-[1fr_auto]"><input id="my-ticket-search" oninput="renderMyTickets()" placeholder="Cari subjek atau ID tiket" class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm"><select id="my-ticket-status" onchange="renderMyTickets()" class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm"><option value="all">Semua status</option><option>Open</option><option>In Progress</option><option>Pending</option><option>Resolved</option><option>Closed</option></select></div></div>
+                <div id="my-ticket-list" class="grid gap-3" aria-live="polite"></div>
+            </div>
+        `;
+
+        views.en['employee-profile'] = `
+            <div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12">
+                <div class="mb-8"><span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Employee Portal</span><h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">My Profile</h2><p class="mt-2 text-gray-500">Your account and linked employee record.</p></div>
+                <div id="employee-profile-content" class="grid gap-5 md:grid-cols-2" aria-live="polite"></div>
+            </div>
+        `;
+
+        views.id['employee-profile'] = `
+            <div class="fade-in max-w-5xl mx-auto p-4 md:p-8 pb-12">
+                <div class="mb-8"><span class="text-surya-green font-bold text-sm tracking-wider uppercase mb-2 block">Portal Karyawan</span><h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Profil Saya</h2><p class="mt-2 text-gray-500">Akun dan data karyawan yang terhubung.</p></div>
+                <div id="employee-profile-content" class="grid gap-5 md:grid-cols-2" aria-live="polite"></div>
             </div>
         `;
 
@@ -2589,35 +3207,115 @@
         function renderMyTickets() {
             const list = document.getElementById('my-ticket-list');
             if (!list) return;
-            const labels = currentLang === 'id'
-                ? { priority: 'Prioritas', pic: 'PIC', empty: 'Tiket tidak ditemukan.' }
-                : { priority: 'Priority', pic: 'PIC', empty: 'No tickets found.' };
+            const isIndonesian = currentLang === 'id';
+            const labels = isIndonesian
+                ? { priority: 'Prioritas', assigned: 'Ditangani', empty: 'Tiket tidak ditemukan.', loadError: 'Tiket tidak dapat dimuat.' }
+                : { priority: 'Priority', assigned: 'Assigned to', empty: 'No tickets found.', loadError: 'Tickets could not be loaded.' };
+            if (helpdeskTicketsError) {
+                list.textContent = `${labels.loadError} ${helpdeskTicketsError}`;
+                list.setAttribute('role', 'alert');
+                return;
+            }
+            list.removeAttribute('role');
             const tickets = getUserTickets();
             const searchValue = document.getElementById('my-ticket-search')?.value || '';
             const selectedStatus = document.getElementById('my-ticket-status')?.value || 'all';
             const filtered = tickets.filter((ticket) => {
-                const matchesQuery = !searchValue || ticket.subject.toLowerCase().includes(searchValue.toLowerCase()) || ticket.id.toLowerCase().includes(searchValue.toLowerCase());
+                const subject = String(ticket.subject || '').toLowerCase();
+                const ticketId = String(ticket.id || '').toLowerCase();
+                const matchesQuery = !searchValue || subject.includes(searchValue.toLowerCase()) || ticketId.includes(searchValue.toLowerCase());
                 const matchesStatus = selectedStatus === 'all' || ticket.status === selectedStatus;
                 return matchesQuery && matchesStatus;
             });
+            list.replaceChildren();
+            if (!filtered.length) {
+                const empty = document.createElement('div');
+                empty.className = 'rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-500';
+                empty.textContent = labels.empty;
+                list.append(empty);
+                return;
+            }
+            filtered.forEach((ticket) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'w-full rounded-2xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-surya-green hover:shadow-sm';
+                button.addEventListener('click', () => openCheckTicket(ticket.id));
+                const header = document.createElement('div');
+                header.className = 'flex flex-col justify-between gap-3 sm:flex-row sm:items-center';
+                const title = document.createElement('div');
+                const id = document.createElement('p');
+                id.className = 'text-xs font-bold uppercase tracking-wider text-surya-green';
+                id.textContent = ticket.id;
+                const subject = document.createElement('h3');
+                subject.className = 'mt-1 text-lg font-bold text-gray-900';
+                subject.textContent = ticket.subject;
+                title.append(id, subject);
+                const status = document.createElement('span');
+                status.className = `inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${ticket.status === 'Open' ? 'bg-amber-100 text-amber-700' : ticket.status === 'Resolved' || ticket.status === 'Closed' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`;
+                status.textContent = ticket.status;
+                header.append(title, status);
+                const metadata = document.createElement('p');
+                metadata.className = 'mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600';
+                metadata.textContent = `${ticket.category} · ${labels.priority}: ${ticket.priority} · ${new Date(ticket.createdAt).toLocaleDateString()} · ${labels.assigned}: ${ticket.pic || '-'}`;
+                button.append(header, metadata);
+                list.append(button);
+            });
+        }
 
-            list.innerHTML = filtered.length ? filtered.map((ticket) => `
-                <button onclick="showToast('Opening ${ticket.id}')" class="w-full block rounded-2xl border border-gray-200 bg-white p-4 text-left hover:border-surya-green hover:shadow-sm transition-all">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div>
-                            <p class="text-xs font-bold uppercase tracking-wider text-surya-green">${ticket.id}</p>
-                            <h4 class="mt-1 text-lg font-bold text-gray-900">${ticket.subject}</h4>
-                        </div>
-                        <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${ticket.status === 'Open' ? 'bg-amber-100 text-amber-700' : ticket.status === 'Resolved' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}">${ticket.status}</span>
-                    </div>
-                    <div class="mt-3 flex flex-wrap gap-3 text-sm text-gray-600">
-                        <span>${ticket.category}</span>
-                        <span>${labels.priority}: ${ticket.priority}</span>
-                        <span>${ticket.createdDate}</span>
-                        <span>${labels.pic}: ${ticket.pic}</span>
-                    </div>
-                </button>
-            `).join('') : `<div class="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-500">${labels.empty}</div>`;
+        function renderEmployeeProfile() {
+            const container = document.getElementById('employee-profile-content');
+            if (!container) return;
+            container.replaceChildren();
+            if (!employeeProfileData) {
+                container.textContent = currentLang === 'id' ? 'Profil sedang dimuat...' : 'Loading profile...';
+                return;
+            }
+            if (employeeProfileData.error) {
+                container.textContent = employeeProfileData.error;
+                container.setAttribute('role', 'alert');
+                return;
+            }
+            container.removeAttribute('role');
+            const account = employeeProfileData.account || {};
+            const employee = employeeProfileData.employee;
+            const makeCard = (title, fields) => {
+                const card = document.createElement('section');
+                card.className = 'rounded-3xl border border-gray-200 bg-white p-6 shadow-sm';
+                const heading = document.createElement('h3');
+                heading.className = 'mb-4 text-lg font-bold text-gray-900';
+                heading.textContent = title;
+                const list = document.createElement('dl');
+                list.className = 'space-y-3';
+                fields.forEach(([label, value]) => {
+                    const row = document.createElement('div');
+                    const term = document.createElement('dt');
+                    term.className = 'text-xs font-semibold uppercase tracking-wide text-gray-500';
+                    term.textContent = label;
+                    const detail = document.createElement('dd');
+                    detail.className = 'mt-1 text-sm font-medium text-gray-900';
+                    detail.textContent = value || '-';
+                    row.append(term, detail);
+                    list.append(row);
+                });
+                card.append(heading, list);
+                return card;
+            };
+            const isIndonesian = currentLang === 'id';
+            container.append(
+                makeCard(isIndonesian ? 'Akun' : 'Account', [
+                    [isIndonesian ? 'Nama pengguna' : 'Username', account.username],
+                    ['Email', account.email],
+                    [isIndonesian ? 'Peran' : 'Roles', (account.roles || [account.role]).filter(Boolean).join(', ')],
+                ]),
+                makeCard(isIndonesian ? 'Data Karyawan' : 'Employee Record', employee ? [
+                    ['ID', employee.id],
+                    [isIndonesian ? 'Nama' : 'Name', employee.name],
+                    ['Email', employee.email],
+                    [isIndonesian ? 'Departemen' : 'Department', employee.department],
+                    [isIndonesian ? 'Jabatan' : 'Position', employee.position],
+                    [isIndonesian ? 'Status' : 'Status', employee.status],
+                ] : [[isIndonesian ? 'Data' : 'Record', isIndonesian ? 'Belum ada data karyawan yang terhubung ke akun ini.' : 'No employee record is linked to this account.']])
+            );
         }
 
         function renderAssets() {
@@ -2676,6 +3374,34 @@
             error.classList.remove('hidden');
         }
 
+        function setAppModalOpen(modal, isOpen) {
+            if (!modal) return;
+            const closeTimer = Number(modal.dataset.closeTimer);
+            if (closeTimer) window.clearTimeout(closeTimer);
+            delete modal.dataset.closeTimer;
+
+            if (isOpen) {
+                modal.dataset.modalState = 'open';
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                window.requestAnimationFrame(() => {
+                    if (modal.dataset.modalState === 'open') modal.classList.add('is-open');
+                });
+                return;
+            }
+
+            modal.dataset.modalState = 'closed';
+            modal.classList.remove('is-open');
+            const delay = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 220;
+            modal.dataset.closeTimer = String(window.setTimeout(() => {
+                if (modal.dataset.modalState !== 'open') {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                }
+                delete modal.dataset.closeTimer;
+            }, delay));
+        }
+
         async function openEmployeeForm(employee) {
             if (!['hr_admin', 'system_admin'].includes(employeeState.user?.role)) return;
             let current = employee || null;
@@ -2702,16 +3428,14 @@
             document.getElementById('employee-form-title').textContent = current
                 ? (currentLang === 'id' ? 'Edit karyawan' : 'Edit employee')
                 : (currentLang === 'id' ? 'Tambah karyawan' : 'Add employee');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
+            setAppModalOpen(modal, true);
             (current ? form.elements.employeeName : form.elements.employeeId).focus();
         }
 
         function closeEmployeeForm() {
             const modal = document.getElementById('employee-form-modal');
             if (!modal) return;
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
+            setAppModalOpen(modal, false);
             employeeState.editingId = null;
             employeeState.editingRecord = null;
         }
@@ -2972,6 +3696,7 @@
 
         function renderCustomViews() {
             renderMyTickets();
+            renderEmployeeProfile();
             renderAssets();
             renderKnowledgeBase();
             renderEmployeeDirectory();
@@ -2994,8 +3719,7 @@
         function openAiAssistant() {
             const modal = document.getElementById('ai-assistant-modal');
             if (modal) {
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
+                setAppModalOpen(modal, true);
                 const input = document.getElementById('ai-user-input');
                 if (input) input.focus();
             }
@@ -3004,8 +3728,7 @@
         function closeAiAssistant() {
             const modal = document.getElementById('ai-assistant-modal');
             if (modal) {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
+                setAppModalOpen(modal, false);
             }
         }
 
@@ -3165,22 +3888,25 @@
         }
 
         function renderSidebarItem(item, isSubmenuItem = false) {
-            const active = item.route === currentViewId;
+            const isEmployeeHubHome = item.route === 'home';
+            const active = item.route === currentViewId && !(isEmployeeHubHome && isHrisPlatform());
             const classes = active
                 ? 'flex w-full items-center gap-3 rounded-lg bg-surya-lightgreen px-3 py-2.5 text-left text-sm font-bold text-surya-green ring-1 ring-surya-green/15'
                 : 'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-gray-600 transition-colors hover:bg-surya-lightgreen hover:text-surya-green focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surya-green';
             const indent = isSubmenuItem ? 'ml-3 w-[calc(100%-0.75rem)] border-l border-gray-200 pl-3' : '';
             const icon = `<i class="fas ${item.icon} w-5 shrink-0 text-center text-base" aria-hidden="true"></i>`;
-            const label = `<span class="min-w-0 flex-1">${navigationLabel(item.key)}</span>`;
+            const label = `<span class="sidebar-label min-w-0 flex-1">${navigationLabel(item.key)}</span>`;
+            const accessibleLabel = navigationLabel(item.key);
             const current = active ? ' aria-current="page"' : '';
 
             if (item.type === 'action') {
-                return `<button type="button" class="sidebar-item ${classes} ${indent}" onclick="toggleSidebar(false); ${item.action}()">${icon}${label}</button>`;
+                return `<button type="button" aria-label="${accessibleLabel}" title="${accessibleLabel}" class="sidebar-item ${classes} ${indent}" onclick="toggleSidebar(false); ${item.action}()">${icon}${label}</button>`;
             }
-            if (item.type === 'link') {
-                return `<a href="${item.href}" class="sidebar-item ${classes} ${indent}">${icon}${label}</a>`;
+            if (item.type === 'link' || (isEmployeeHubHome && isHrisPlatform())) {
+                const href = isEmployeeHubHome ? '/employee-hub#home' : item.href;
+                return `<a href="${href}" aria-label="${accessibleLabel}" title="${accessibleLabel}" class="sidebar-item ${classes} ${indent}">${icon}${label}</a>`;
             }
-            return `<button type="button" class="sidebar-item ${classes} ${indent}" data-route="${item.route}" onclick="navigate('${item.route}')"${current}>${icon}${label}</button>`;
+            return `<button type="button" aria-label="${accessibleLabel}" title="${accessibleLabel}" class="sidebar-item ${classes} ${indent}" data-route="${item.route}" onclick="navigate('${item.route}')"${current}>${icon}${label}</button>`;
         }
 
         function renderSidebarNavigation() {
@@ -3188,9 +3914,28 @@
             if (!nav) return;
 
             const menu = [];
-            menu.push(`<p class="px-3 pb-3 text-xs font-bold uppercase tracking-widest text-gray-400">${navigationLabel('main-menu')}</p>`);
+            const roles = hrisAuthState.user?.roles || [hrisAuthState.user?.role];
+            const canAccessHris = roles.some((role) => ['hr_admin', 'system_admin'].includes(role));
+            let currentSection = 'employee-hub';
             for (const item of sidebarMenu) {
+                if (item.type === 'section') {
+                    currentSection = item.key;
+                    if (currentSection === 'hris' && !canAccessHris) continue;
+                } else if (currentSection === 'hris' && !canAccessHris) {
+                    continue;
+                }
+                if (
+                    item.type === 'divider' &&
+                    currentSection === 'employee-hub' &&
+                    !canAccessHris
+                ) continue;
                 if (hrisAuthState.demoMode && item.key === 'sign-out') continue;
+                if (
+                    item.key === 'helpdesk-queue' &&
+                    !['it_support', 'hr_admin', 'system_admin'].some((role) =>
+                        (hrisAuthState.user?.roles || [hrisAuthState.user?.role]).includes(role)
+                    )
+                ) continue;
                 if (item.type === 'divider') {
                     if (item.key === 'helpdesk-divider') {
                         menu.push('<div class="my-4 border-t border-gray-100" role="separator"></div>');
@@ -3200,7 +3945,7 @@
                     continue;
                 }
                 if (item.type === 'section') {
-                    menu.push(`<p class="px-3 pb-2 pt-1 text-xs font-bold uppercase tracking-widest text-gray-400">${navigationLabel(item.key)}</p>`);
+                    menu.push(`<p class="sidebar-section-label px-3 pb-2 pt-1 text-xs font-bold uppercase tracking-widest text-gray-400">${navigationLabel(item.key)}</p>`);
                     continue;
                 }
                 if (item.type !== 'group') {
@@ -3216,11 +3961,11 @@
                     : 'text-gray-600 hover:bg-surya-lightgreen hover:text-surya-green';
                 menu.push(`
                     <div class="space-y-1">
-                        <button type="button" class="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition-colors ${groupClasses} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surya-green"
+                        <button type="button" aria-label="${navigationLabel(item.key)}" title="${navigationLabel(item.key)}" class="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition-colors ${groupClasses} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surya-green"
                             aria-expanded="${isOpen}" aria-controls="${submenuId}" onclick="toggleSidebarGroup('${item.key}')">
                             <i class="fas ${item.icon} w-5 shrink-0 text-center text-base" aria-hidden="true"></i>
-                            <span class="min-w-0 flex-1">${navigationLabel(item.key)}</span>
-                            <i class="fas fa-chevron-down text-xs transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}" aria-hidden="true"></i>
+                            <span class="sidebar-label min-w-0 flex-1">${navigationLabel(item.key)}</span>
+                            <i class="sidebar-group-chevron fas fa-chevron-down text-xs transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}" aria-hidden="true"></i>
                         </button>
                         <div id="${submenuId}" class="sidebar-submenu space-y-1 overflow-hidden pl-1 ${isOpen ? 'max-h-[32rem] opacity-100' : 'max-h-0 opacity-0'}" aria-hidden="${!isOpen}" ${isOpen ? '' : 'inert'}>
                             ${item.children.map((child) => renderSidebarItem(child, true)).join('')}
@@ -3232,6 +3977,14 @@
         }
 
         function toggleSidebarGroup(groupKey) {
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar?.classList.contains('sidebar-collapsed')) {
+                sidebar.classList.remove('sidebar-collapsed');
+                const button = sidebar.querySelector('.sidebar-brand button');
+                const icon = button?.querySelector('i');
+                if (icon) icon.className = 'fas fa-angles-left';
+                if (button) button.setAttribute('aria-expanded', 'true');
+            }
             expandedSidebarGroup = expandedSidebarGroup === groupKey ? null : groupKey;
             renderSidebarNavigation();
             document.getElementById('sidebar-nav')
@@ -3316,12 +4069,14 @@
                 'ticket-department-label': uiTranslations[lang].ticketDepartment,
                 'ticket-category-label': uiTranslations[lang].ticketCategory,
                 'ticket-priority-label': uiTranslations[lang].ticketPriority,
-                'ticket-attachment-label': uiTranslations[lang].ticketAttachment,
                 'ticket-cancel': lang === 'id' ? 'Batal' : 'Cancel',
                 'ticket-submit': lang === 'id' ? 'Kirim tiket' : 'Submit ticket',
                 'check-modal-label': uiTranslations[lang].checkLabel,
                 'check-modal-title': uiTranslations[lang].checkTitle,
                 'check-modal-submit': uiTranslations[lang].checkSubmit,
+                'ticket-privacy-help': lang === 'id'
+                    ? 'Hanya tiket milik akun Anda yang dapat diakses.'
+                    : 'Only tickets owned by your signed-in account are available.',
                 'ai-title': uiTranslations[lang].aiTitle,
                 'ai-greeting': uiTranslations[lang].aiGreeting,
                 'ai-ask': uiTranslations[lang].aiAsk,
@@ -3380,19 +4135,33 @@
             if (menuToggle) menuToggle.setAttribute('aria-expanded', String(isOpen));
         }
 
+        function toggleSidebarCollapsed() {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar) return;
+            sidebar.classList.toggle('sidebar-collapsed');
+            const button = sidebar.querySelector('.sidebar-brand button');
+            const icon = button?.querySelector('i');
+            const collapsed = sidebar.classList.contains('sidebar-collapsed');
+            if (icon) icon.className = `fas ${collapsed ? 'fa-angles-right' : 'fa-angles-left'}`;
+            if (button) button.setAttribute('aria-expanded', String(!collapsed));
+        }
+
         function renderView(viewId, isLangSwitch) {
             const contentArea = document.getElementById('content-area');
             if (!contentArea) return;
             const requestId = ++renderRequestId;
-            
-            // Simple fade out
-            contentArea.style.opacity = '0';
-            
+
+            const shouldTransition = !isLangSwitch && contentArea.childElementCount > 0;
+            if (shouldTransition) contentArea.classList.add('page-transition-out');
             setTimeout(() => {
                 if (requestId !== renderRequestId) return;
                 // Inject HTML using current view and language
                 contentArea.innerHTML = viewId === 'employees'
                     ? employeeDirectoryView()
+                    : viewId === 'quick-access-management'
+                        ? quickAccessManagementView()
+                    : viewId === 'home' && !isHrisPlatform()
+                        ? employeeHubDashboardView()
                     : viewId === 'home' && isHrisPlatform()
                         ? hrisDashboardHome[currentLang]
                         : placeholderRoutes.has(viewId) && !views[currentLang][viewId]
@@ -3400,12 +4169,23 @@
                             : views[currentLang][viewId] || views[currentLang]['home'];
                 // Reset scroll unless we are just toggling languages
                 if (!isLangSwitch) contentArea.scrollTop = 0; 
-                // Fade in
-                contentArea.style.opacity = '1';
                 renderSidebarNavigation();
                 if (viewId === 'employees') initializeEmployeeDirectory();
                 if (viewId === 'home' && isHrisPlatform()) initializeDashboard();
-            }, 150);
+                if (viewId === 'home' && !isHrisPlatform()) {
+                    renderDashboardCalendar();
+                    loadQuickAccess();
+                }
+                if (viewId === 'request' && !isHrisPlatform()) loadQuickAccess();
+                if (viewId === 'quick-access-management') initializeQuickAccessManagement();
+                if (shouldTransition) {
+                    window.requestAnimationFrame(() => {
+                        if (requestId === renderRequestId) contentArea.classList.remove('page-transition-out');
+                    });
+                } else {
+                    contentArea.classList.remove('page-transition-out');
+                }
+            }, shouldTransition ? 80 : 0);
         }
 
         window.addEventListener('popstate', () => {
@@ -3420,7 +4200,11 @@
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             toast.className = 'bg-gray-900 text-white px-5 py-3 rounded-xl shadow-2xl text-sm font-medium flex items-center space-x-3 toast-enter pointer-events-auto border border-gray-700';
-            toast.innerHTML = `<i class="fas fa-info-circle text-surya-yellow"></i><span>${message}</span>`;
+            const icon = document.createElement('i');
+            icon.className = 'fas fa-info-circle text-surya-yellow';
+            const label = document.createElement('span');
+            label.textContent = message;
+            toast.append(icon, label);
             
             container.appendChild(toast);
             setTimeout(() => {
@@ -3433,72 +4217,116 @@
 
         function openTicketForm() {
             const modal = document.getElementById('ticket-modal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
+            const profile = employeeProfileData || {};
+            const account = profile.account || hrisAuthState.user || {};
+            const employee = profile.employee || {};
+            document.getElementById('ticket-name').value =
+                employee.name || account.username || '';
+            document.getElementById('ticket-email').value =
+                employee.email || account.email || '';
+            document.getElementById('ticket-department').value =
+                employee.department || '';
+            setAppModalOpen(modal, true);
             document.getElementById('ticket-subject').focus();
         }
 
         function closeTicketForm() {
             const modal = document.getElementById('ticket-modal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
+            setAppModalOpen(modal, false);
         }
 
         function openCheckTicket(ticketId = '') {
             const modal = document.getElementById('check-ticket-modal');
             const input = document.getElementById('check-ticket-id');
             if (input && ticketId) input.value = ticketId;
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
+            setAppModalOpen(modal, true);
             if (input) input.focus();
             if (ticketId) checkTicketStatus();
         }
 
         function closeCheckTicket() {
             const modal = document.getElementById('check-ticket-modal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
+            setAppModalOpen(modal, false);
         }
 
-        function checkTicketStatus() {
+        async function checkTicketStatus() {
             const input = document.getElementById('check-ticket-id');
             const result = document.getElementById('ticket-result');
-            const ticket = getTicket(input?.value);
             if (!result) return;
             result.classList.remove('hidden');
-            if (!ticket) {
-                const message = currentLang === 'id'
-                    ? 'Ticket tidak ditemukan. Periksa kembali Ticket ID kamu.'
-                    : 'Ticket not found. Please check the ticket ID and try again.';
-                result.innerHTML = `<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">${message}</div>`;
+            const ticketId = input?.value.trim();
+            if (!ticketId) {
+                result.textContent = currentLang === 'id'
+                    ? 'Masukkan ID tiket.'
+                    : 'Enter a ticket ID.';
                 return;
             }
-            const timeline = (ticket.timeline || []).map((item) => `<li class="flex items-center gap-3"><span class="h-2.5 w-2.5 rounded-full bg-surya-green"></span><span class="font-semibold">${item.status}</span><span class="text-xs text-gray-500">${new Date(item.at).toLocaleString()}</span></li>`).join('');
-            result.innerHTML = `<div class="space-y-4 rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm">
-                <div class="grid gap-2 sm:grid-cols-2"><p><b>Ticket ID:</b> ${ticket.id}</p><p><b>Status:</b> ${ticket.status}</p><p><b>Subject:</b> ${ticket.subject}</p><p><b>Category:</b> ${ticket.category}</p><p><b>Priority:</b> ${ticket.priority}</p><p><b>Created Date:</b> ${ticket.createdAt || ticket.createdDate}</p><p><b>Last Updated:</b> ${ticket.updatedAt || ticket.createdAt || ticket.createdDate}</p><p><b>PIC:</b> ${ticket.pic || 'Not assigned'}</p></div>
-                <p><b>Description:</b> ${ticket.description}</p><div><b>Timeline</b><ol class="mt-2 space-y-2">${timeline}</ol></div>
-                <button type="button" onclick="navigator.clipboard?.writeText('${ticket.id}'); showToast('Ticket ID copied.')" class="rounded-xl bg-white px-3 py-2 text-xs font-bold text-surya-green shadow-sm">Copy Ticket ID</button>
-            </div>`;
+            result.textContent = currentLang === 'id' ? 'Memuat tiket...' : 'Loading ticket...';
+            try {
+                const { ticket } = await employeeApi(
+                    `/api/helpdesk/tickets/${encodeURIComponent(ticketId)}`
+                );
+                const safe = dashboardEscape;
+                const timeline = (ticket.timeline || []).map((item) => {
+                    const details = typeof item.details === 'string'
+                        ? item.details
+                        : JSON.stringify(item.details || {});
+                    return `<li class="flex flex-wrap items-center gap-2"><span class="h-2.5 w-2.5 rounded-full bg-surya-green"></span><span class="font-semibold">${safe(item.type || item.status)}</span><span class="text-xs text-gray-500">${safe(new Date(item.at).toLocaleString())}</span><span class="text-gray-600">${safe(details)}</span></li>`;
+                }).join('');
+                const comments = (ticket.comments || []).map((comment) => `
+                    <li class="rounded-lg bg-white p-3"><p class="font-semibold">${safe(comment.author)}</p><p class="mt-1 whitespace-pre-wrap">${safe(comment.body)}</p><p class="mt-1 text-xs text-gray-500">${safe(new Date(comment.createdAt).toLocaleString())}</p></li>
+                `).join('');
+                result.innerHTML = `<div class="space-y-4 rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm">
+                    <div class="grid gap-2 sm:grid-cols-2"><p><b>Ticket ID:</b> ${safe(ticket.id)}</p><p><b>Status:</b> ${safe(ticket.status)}</p><p><b>Subject:</b> ${safe(ticket.subject)}</p><p><b>Category:</b> ${safe(ticket.category)}</p><p><b>Priority:</b> ${safe(ticket.priority)}</p><p><b>Created Date:</b> ${safe(ticket.createdAt)}</p><p><b>Last Updated:</b> ${safe(ticket.updatedAt)}</p><p><b>PIC:</b> ${safe(ticket.pic || 'Not assigned')}</p></div>
+                    <p class="whitespace-pre-wrap"><b>Description:</b> ${safe(ticket.description)}</p><div><b>Timeline</b><ol class="mt-2 space-y-2">${timeline || '<li>No updates yet.</li>'}</ol></div>
+                    <div><b>Comments</b><ul class="mt-2 space-y-2">${comments || '<li>No comments yet.</li>'}</ul></div>
+                    <button type="button" id="copy-ticket-id" class="rounded-xl bg-white px-3 py-2 text-xs font-bold text-surya-green shadow-sm">Copy Ticket ID</button>
+                </div>`;
+                document.getElementById('copy-ticket-id')?.addEventListener('click', async () => {
+                    try {
+                        await navigator.clipboard.writeText(ticket.id);
+                        showToast('Ticket ID copied.');
+                    } catch {
+                        showToast(currentLang === 'id'
+                            ? 'Tidak dapat menyalin ID tiket.'
+                            : 'Could not copy the ticket ID.');
+                    }
+                });
+            } catch (error) {
+                result.textContent = error.message || (currentLang === 'id'
+                    ? 'Tiket tidak ditemukan atau Anda tidak memiliki akses.'
+                    : 'Ticket not found or you do not have access.');
+            }
         }
 
-        document.getElementById('ticket-form').addEventListener('submit', function (event) {
+        document.getElementById('ticket-form').addEventListener('submit', async function (event) {
             event.preventDefault();
-            const attachment = document.getElementById('ticket-attachment')?.files[0];
-            const ticket = createTicket({
-                name: document.getElementById('ticket-name').value.trim(),
-                email: document.getElementById('ticket-email').value.trim(),
-                department: document.getElementById('ticket-department').value.trim(),
-                category: document.getElementById('ticket-category').value,
-                priority: document.getElementById('ticket-priority').value,
-                subject: document.getElementById('ticket-subject').value.trim(),
-                description: document.getElementById('ticket-description').value.trim(),
-                attachment: attachment ? { name: attachment.name, type: attachment.type, size: attachment.size } : null
-            });
-
-            closeTicketForm();
-            this.reset();
-            openCheckTicket(ticket.id);
-            showToast(`Ticket berhasil dibuat. ID kamu: ${ticket.id}`);
+            const form = this;
+            const submit = form.querySelector('button[type="submit"]');
+            submit.disabled = true;
+            try {
+                const result = await employeeApi('/api/helpdesk/tickets', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: document.getElementById('ticket-name').value.trim(),
+                        email: document.getElementById('ticket-email').value.trim(),
+                        department: document.getElementById('ticket-department').value.trim(),
+                        category: document.getElementById('ticket-category').value,
+                        priority: document.getElementById('ticket-priority').value,
+                        subject: document.getElementById('ticket-subject').value.trim(),
+                        description: document.getElementById('ticket-description').value.trim()
+                    })
+                });
+                closeTicketForm();
+                form.reset();
+                await loadMyTickets();
+                openCheckTicket(result.ticket.id);
+                showToast(`Ticket created. ID: ${result.ticket.id}`);
+            } catch (error) {
+                showToast(error.message || 'Ticket could not be created.');
+            } finally {
+                submit.disabled = false;
+            }
         });
 
         // Accordion Logic for SOP Page
